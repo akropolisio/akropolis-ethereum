@@ -9,6 +9,9 @@ author:     Anton Jurisevic
 
 date:       2018-2-5
 
+auditors: Sigma Prime, https://github.com/sigp/havven-audit
+          BlocTrax, https://havven.io/uploads/havven_bloctrax_security_audit_june-6th.pdf
+
 -----------------------------------------------------------------
 MODULE DESCRIPTION
 -----------------------------------------------------------------
