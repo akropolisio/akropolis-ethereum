@@ -22,7 +22,6 @@ D2: Initiate a new motion. Motions should contain:
 D3: Vote to change the fund manager.
 
 
-
 SHOULD HAVE:
 
 D4: Vote to add directors
@@ -38,12 +37,19 @@ D9: Remove approved investible token
 
 ***/
 
+import "./utils/IterableSet.sol";
+
 contract Board {
+    using IterableSet for IterableSet.Set;
 
     enum MotionType {
         ChangeFundManager,
         AddDirectors,
-        RemoveDirectors
+        RemoveDirectors,
+        SetFee,
+        SetTimeLock,
+        ApproveToken,
+        DisapproveToken
     }
 
     enum VoteType {
@@ -64,12 +70,11 @@ contract Board {
     }
 
     modifier onlyDirectors() {
-        require(isDirector[msg.sender], "Caller is not a director.");
+        require(isDirector(msg.sender), "Caller is not a director.");
         _;
     }
 
-    mapping(address => bool) isDirector;
-    address[] directors;
+    IterableSet.Set directors;
     Motion[] motions;
 
     // TODO: Write tests for this:
@@ -80,24 +85,38 @@ contract Board {
         public
     {
         uint len = initialDirectors.length;
-
-        // If no directors were specified,
-        // then the contract creator becomes the first director.
+        // If no directors were given, the sender is the first director.
         if (len == 0) {
-            _addDirector(msg.sender);
+            directors.add(msg.sender);
         } else {
             for (uint i; i < len; i++) {
-                _addDirector(initialDirectors[i]);
+                directors.add(initialDirectors[i]);
             }
         }
     }
 
-    // TODO: Test that this works properly
-    function _addDirector(address director)
-        internal
+    function isDirector(address director)
+        public
+        view
+        returns (bool)
     {
-        isDirector[director] = true;
-        directors.push(director);
+        return directors.contains(director);
+    }
+
+    function numDirectors()
+        public
+        view
+        returns (uint)
+    {
+        return directors.size();
+    }
+
+    function getDirector(uint i)
+        public
+        view
+        returns (address)
+    {
+        return directors.get(i);
     }
 
     /// @return ID of the initiated motion.
@@ -117,10 +136,19 @@ contract Board {
             id = _initiateAddDirectors(data);
         } else if (motionType == MotionType.RemoveDirectors) {
             id = _initiateRemoveDirectors(data);
+        } else if (motionType == MotionType.SetFee) {
+            id = _initiateSetFee(data);
+        } else if (motionType == MotionType.SetTimeLock) {
+            id = _initiateSetTimeLock(data);
+        } else if (motionType == MotionType.ApproveToken) {
+            id = _initiateApproveToken(data);
+        } else if (motionType == MotionType.DisapproveToken) {
+            id = _initiateDisapproveToken(data);
         } else {
             // TODO: Verify that this error string is correctly returned.
             revert("Unsupported motion type.");
         }
+        motions[id].expiry = now + duration;
 
         // TODO: Test that the returned id is actually the proper last id.
         return id;
@@ -153,4 +181,35 @@ contract Board {
         revert("Unimplimented motion type.");
     }
 
+    function _initiateSetFee(bytes data)
+        internal
+        returns (uint)
+    {
+        // TODO: Test unimplimented throws properly.
+        revert("Unimplimented motion type.");
+    }
+
+    function _initiateSetTimeLock(bytes data)
+        internal
+        returns (uint)
+    {
+        // TODO: Test unimplimented throws properly.
+        revert("Unimplimented motion type.");
+    }
+
+    function _initiateApproveToken(bytes data)
+        internal
+        returns (uint)
+    {
+        // TODO: Test unimplimented throws properly.
+        revert("Unimplimented motion type.");
+    }
+
+    function _initiateDisapproveToken(bytes data)
+        internal
+        returns (uint)
+    {
+        // TODO: Test unimplimented throws properly.
+        revert("Unimplimented motion type.");
+    }
 }
