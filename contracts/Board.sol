@@ -61,6 +61,7 @@ contract Board {
     struct Motion {
         uint id;
         MotionType motionType;
+        address creator;
         uint expiry;
         uint votesFor;
         uint votesAgainst;
