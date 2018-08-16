@@ -16,7 +16,7 @@ contract TestBytesHandler is BytesHandler {
 
     function _getAddress(bytes b, uint offset)
         pure
-        internal
+        public
         returns (address)
     {
         return getAddress(b, offset);
