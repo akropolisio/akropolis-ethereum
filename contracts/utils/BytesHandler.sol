@@ -3,6 +3,9 @@ pragma experimental "v0.5.0";
 
 
 contract BytesHandler {
+
+    // TODO: Investigate if these are made more efficient by direct CALLDATA extraction.
+
     function getUint(bytes b, uint offset)
         pure
         internal
