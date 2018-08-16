@@ -1,3 +1,6 @@
+pragma solidity ^0.4.24;
+pragma experimental "v0.5.0";
+
 contract ERC20Token {
     string public constant name = "Token Name";
     string public constant symbol = "SYM";
