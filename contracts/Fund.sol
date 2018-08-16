@@ -4,24 +4,117 @@ pragma experimental "v0.5.0";
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
 
-// All fixed point math is done to 18 decimal places.
-contract AkropolisFund is IterableSet {
-    address board; // TODO: This should be of type Board, once we merge in the `board-of-directors` branch.
-    address manager;
+// The fund itself should have non-transferrable shares which represent share in the fund.
+contract AkropolisFund {
+    using IterableSet for IterableSet.Set;
+
+    address public board; // TODO: This should be of type Board, once we merge in the `board-of-directors` branch.
+    address public manager;
 
     // Percentage of AUM over one year.
     // TODO: Add a flat rate as well. Maybe also performance fees.
-    uint managementFeePerYear;
+    uint public managementFeePerYear;
 
     // Tokens that this fund is approved to own.
-    Set approvedTokens;
+    // TODO: Make this effectively public with view functions.
+    IterableSet.Set approvedTokens;
 
     // Token in which benefits will be paid.
-    ERC20Token quoteAsset;
+    ERC20Token public denominatingAsset;
     
-    // Each user has a time after which they can withdraw benefits. Can be modified by fund directors.
-    mapping(address => uint) userTimeLock;
+    // TODO: Make this effectively public with view functions.
+    IterableSet.Set members;
 
-    Set members;
+    // Each user has a time after which they can withdraw benefits. Can be modified by fund directors.
+    mapping(address => uint) public memberTimeLock;
+
+    modifier onlyBoard() {
+        require(msg.sender == board, "Sender is not the Board of Directors.");
+        _;
+    }
+    modifier onlyManager() {
+        require(msg.sender == board, "Sender is not the manager.");
+        _;
+    }
+
+    constructor()
+      public
+    {
+        revert("Unimplimented");
+    }
+
+    function approveTokens(ERC20Token[] tokens)
+      external
+      onlyBoard
+    {
+        for (uint i; i < tokens.length; i++) {
+            approvedTokens.add(address(tokens[i]));
+        }
+    }
+
+    function removeTokens(ERC20Token[] tokens)
+      external
+      onlyBoard
+    {
+        for (uint i; i < tokens.length; i++) {
+            approvedTokens.remove(address(tokens[i]));
+        }
+    }
+
+    // TODO: Add some structure for managing requests.
+    function joinFund()
+        public
+    {
+        revert("Unimplimented");
+    }
+
+    function makeContribution()
+        public
+    {
+        revert("Unimplimented");
+    }
+
+    function withdrawBenefits()
+        public
+    {
+        revert("Unimplimented");
+    }
+
+    function withdrawFees()
+        public
+        onlyManager
+    {
+        revert("Unimplimented");
+    }
+
+    function executeRequest()
+        public
+        onlyManager
+    {
+        revert("Unimplimented");
+    }
+    
+    function cancelRequest()
+        public
+        onlyManager
+    {
+        revert("Unimplimented");
+    }
+
+    function balanceOfToken()
+        public
+        view
+        returns (uint)
+    {
+        revert("Unimplimented");
+    }
+
+    function fundBalances()
+        public
+        view
+        returns (uint[])
+    {
+        revert("Unimplimented");
+    }
 
 }
