@@ -72,7 +72,7 @@ contract Board is BytesHandler {
     struct Motion {
         uint id;
         MotionType motionType;
-        MotionStatus motionStatus;
+        MotionStatus status;
         address creator;
         uint expiry;
         uint votesFor;
@@ -144,6 +144,7 @@ contract Board is BytesHandler {
 
     function isValidMotionType(MotionType motionType)
         internal
+        returns (bool)
     {
         return motionType == MotionType.SetManager ||
                motionType == MotionType.AddDirectors ||
