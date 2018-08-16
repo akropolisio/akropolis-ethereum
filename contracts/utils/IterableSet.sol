@@ -1,7 +1,7 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
-contract IterableSet {
+library IterableSet {
 
     struct Set {
         mapping(address => uint) indices;
@@ -44,15 +44,18 @@ contract IterableSet {
         }
     }
 
-    function remove(Set storage s, address k)
+    function remove(Set storage s, address a)
         internal
-        returns (uint v)
+        returns (bool)
     {
+        uint index = s.indices[a];
+        if (index == 0) {
+            return false;
+        }
         // Find the index of `k` and swap it with the last item, remove last item
-        uint index = s.indices[k];
-        require(index != 0, "`k` not in set");
         s.items[index] = s.items[s.items.length - 1]; 
+        delete s.items[s.items.length - 1];
         s.items.length--;
-        return index;
+        return true;
     }
 }
