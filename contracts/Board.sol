@@ -87,7 +87,7 @@ contract Board is BytesHandler, Unimplemented {
         uint id;
         MotionType motionType;
         MotionStatus status;
-        address creator;
+        address initiator;
         uint expiry;
         uint votesFor;
         uint votesAgainst;
@@ -301,13 +301,19 @@ contract Board is BytesHandler, Unimplemented {
         public
         onlyDirectors
     {
-        unimplemented();
+        Motion storage motion = getActiveMotion(motionID);
+        require(msg.sender == motion.initiator, "Only the initiator may cancel a motion.");
+        require(motion.votesFor + motion.votesAgainst == 0, "Motions with non-abstention votes cannot be cancelled.");
+        motion.status = MotionStatus.Cancelled;
     }
 
     function expireMotion(uint motionID)
         public
+        onlyDirectors
     {
-        unimplemented();
+        Motion storage motion = getActiveMotion(motionID);
+        require(motion.expiry < now, "Motion has not expired.");
+        motion.status = MotionStatus.Expired;
     }
 
     function motionPasses(uint motionID) 
