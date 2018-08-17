@@ -259,7 +259,9 @@ contract Board is BytesHandler, Unimplemented {
     }
 
     function executeMotion(uint motionID)
-        internal
+        public
+        onlyDirectors
+        returns (bool)
     {
         Motion storage motion = getActiveMotion(motionID);
 
@@ -282,9 +284,17 @@ contract Board is BytesHandler, Unimplemented {
         } else if (motionType == MotionType.DisapproveTokens) {
             result = executeDisapproveTokens(data);
         } else {
-            // TODO: Verify that this error string is correctly returned.
+            // TODO: Verify that this reverts correctly.
             revert("Unsupported motion type.");
         }
+
+        if (result) {
+            motion.status = MotionStatus.Executed;
+        } else {
+            motion.status = MotionStatus.ExecutionFailed;
+        }
+
+        return result;
     }
 
     function cancelMotion(uint motionID)
