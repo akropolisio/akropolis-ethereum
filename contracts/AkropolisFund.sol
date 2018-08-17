@@ -4,9 +4,10 @@ pragma experimental "v0.5.0";
 import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
+import "./utils/Unimplemented.sol";
 
 // The fund itself should have non-transferrable shares which represent share in the fund.
-contract AkropolisFund is PensionFund {
+contract AkropolisFund is PensionFund, Unimplemented {
     using IterableSet for IterableSet.Set;
 
     address public board; // TODO: This should be of type Board, once we merge in the `board-of-directors` branch.
@@ -41,7 +42,7 @@ contract AkropolisFund is PensionFund {
     constructor()
       public
     {
-        revert("Unimplimented");
+        unimplemented();
     }
 
     function setManager(address newManager) 
@@ -73,40 +74,40 @@ contract AkropolisFund is PensionFund {
     function joinFund()
         public
     {
-        revert("Unimplimented");
+        unimplemented();
     }
 
     function makeContribution()
         public
     {
-        revert("Unimplimented");
+        unimplemented();
     }
 
     function withdrawBenefits()
         public
     {
-        revert("Unimplimented");
+        unimplemented();
     }
 
     function withdrawFees()
         public
         onlyManager
     {
-        revert("Unimplimented");
+        unimplemented();
     }
 
     function executeRequest()
         public
         onlyManager
     {
-        revert("Unimplimented");
+        unimplemented();
     }
     
     function cancelRequest()
         public
         onlyManager
     {
-        revert("Unimplimented");
+        unimplemented();
     }
 
     function balanceOfToken()
@@ -114,7 +115,7 @@ contract AkropolisFund is PensionFund {
         view
         returns (uint)
     {
-        revert("Unimplimented");
+        unimplemented();
     }
 
     function fundBalances()
@@ -122,7 +123,7 @@ contract AkropolisFund is PensionFund {
         view
         returns (uint[])
     {
-        revert("Unimplimented");
+        unimplemented();
     }
 
 }
