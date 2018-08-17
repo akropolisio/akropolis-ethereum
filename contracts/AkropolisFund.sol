@@ -1,12 +1,13 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
+import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
 import "./Board.sol";
 
 // The fund itself should have non-transferrable shares which represent share in the fund.
-contract AkropolisFund {
+contract AkropolisFund is PensionFund {
     using IterableSet for IterableSet.Set;
 
     Board public board;
@@ -85,6 +86,13 @@ contract AkropolisFund {
       public
     {
         revert("Unimplimented");
+    }
+
+    function setManager(address newManager) 
+        external
+        onlyBoard
+    {
+        manager = newManager;
     }
 
     function approveTokens(ERC20Token[] tokens)

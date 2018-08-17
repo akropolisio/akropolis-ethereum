@@ -38,18 +38,20 @@ D9: Remove approved investible token
 ***/
 
 import "./utils/IterableSet.sol";
+import "./utils/BytesHandler.sol";
+import "./interfaces/PensionFund.sol";
 
-contract Board {
+contract Board is BytesHandler {
     using IterableSet for IterableSet.Set;
 
     enum MotionType {
-        ChangeFundManager,
+        SetManager,
         AddDirectors,
         RemoveDirectors,
         SetFee,
         SetTimeLock,
-        ApproveToken,
-        DisapproveToken
+        ApproveTokens,
+        DisapproveTokens
     }
 
     enum VoteType {
@@ -58,16 +60,27 @@ contract Board {
         No
     }
 
+    enum MotionStatus {
+        Cancelled,
+        Active,
+        Executed,
+        Failed,
+        ExecutionFailed,
+        Expired
+    }
+
     struct Motion {
         uint id;
         MotionType motionType;
+        MotionStatus status;
         address creator;
         uint expiry;
         uint votesFor;
         uint votesAgainst;
+        string description;
+        bytes data;
         mapping(address => VoteType) vote; // Default value is "Absent"
         // TODO: Add a test verifying the default value to enforce the ordering of VoteType enum.
-        bytes data;
     }
 
     modifier onlyDirectors() {
@@ -77,6 +90,7 @@ contract Board {
 
     IterableSet.Set directors;
     Motion[] motions;
+    PensionFund fund;
 
     // TODO: Write tests for this:
     //       * all directors are properly initialised.
@@ -94,6 +108,13 @@ contract Board {
                 directors.add(initialDirectors[i]);
             }
         }
+    }
+
+    function unimplimented() 
+        internal
+        pure
+    {
+        revert("Unimplimented.");
     }
 
     function isDirector(address director)
@@ -120,8 +141,40 @@ contract Board {
         return directors.get(i);
     }
 
+    function resignAsDirector()
+        public
+        onlyDirectors
+    {
+        require(directors.size() > 1, "Sole director cannot resign.");
+        directors.remove(msg.sender);
+    }
+
+    function getActiveMotion(uint motionID)
+        internal
+        view
+        returns (Motion storage)
+    {
+        require(motionID < motions.length, "Invalid motion ID");
+        Motion storage motion = motions[motionID];
+        require(motion.status == MotionStatus.Active, "Motion is inactive.");
+        return motion;
+    }
+
+    function isValidMotionType(MotionType motionType)
+        internal
+        returns (bool)
+    {
+        return motionType == MotionType.SetManager ||
+               motionType == MotionType.AddDirectors ||
+               motionType == MotionType.RemoveDirectors ||
+               motionType == MotionType.SetFee ||
+               motionType == MotionType.SetTimeLock ||
+               motionType == MotionType.ApproveTokens ||
+               motionType == MotionType.DisapproveTokens;
+    }
+
     /// @return ID of the initiated motion.
-    function initiateMotion(MotionType motionType, uint duration, bytes data)
+    function initiateMotion(MotionType motionType, uint duration, string description, bytes data)
         public
         onlyDirectors
         returns (uint)
@@ -130,87 +183,142 @@ contract Board {
         // TODO: Test that motion type ends up mapping to the appropriate motion type.
         // TODO: Test that duration is properly set for all motion types.
 
-        uint id;
-        if (motionType == MotionType.ChangeFundManager) {
-            id = _initiateChangeFundManager(data);
+        require(isValidMotionType(motionType), "Invalid motion type.");
+        require(data.length > 0, "Data must not be empty.");
+        uint numMotions = motions.length;
+
+        motions.push(Motion(
+            numMotions,
+            motionType,
+            MotionStatus.Active,
+            msg.sender,
+            now + duration,
+            0, 0,
+            description,
+            data));
+
+        // TODO: Test that the returned id is actually the proper last id.
+        return numMotions;
+    }
+
+    function executeSetManager(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    function executeAddDirectors(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    /// @return ID of the initiated motion.
+    function executeRemoveDirectors(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    function executeSetFee(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    function executeSetTimeLock(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    function executeApproveTokens(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    function executeDisapproveTokens(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    function executeMotion(uint motionID)
+        internal
+    {
+        Motion storage motion = getActiveMotion(motionID);
+
+        bytes storage data = motion.data;
+        MotionType motionType = motion.motionType;
+        bool result;
+
+        if (motionType == MotionType.SetManager) {
+            result = executeSetManager(data);
         } else if (motionType == MotionType.AddDirectors) {
-            id = _initiateAddDirectors(data);
+            result = executeAddDirectors(data);
         } else if (motionType == MotionType.RemoveDirectors) {
-            id = _initiateRemoveDirectors(data);
+            result = executeRemoveDirectors(data);
         } else if (motionType == MotionType.SetFee) {
-            id = _initiateSetFee(data);
+            result = executeSetFee(data);
         } else if (motionType == MotionType.SetTimeLock) {
-            id = _initiateSetTimeLock(data);
-        } else if (motionType == MotionType.ApproveToken) {
-            id = _initiateApproveToken(data);
-        } else if (motionType == MotionType.DisapproveToken) {
-            id = _initiateDisapproveToken(data);
+            result = executeSetTimeLock(data);
+        } else if (motionType == MotionType.ApproveTokens) {
+            result = executeApproveTokens(data);
+        } else if (motionType == MotionType.DisapproveTokens) {
+            result = executeDisapproveTokens(data);
         } else {
             // TODO: Verify that this error string is correctly returned.
             revert("Unsupported motion type.");
         }
-        motions[id].expiry = now + duration;
-
-        // TODO: Test that the returned id is actually the proper last id.
-        return id;
     }
 
-    /// @return ID of the initiated motion.
-    function _initiateChangeFundManager(bytes data)
-        internal
-        returns (uint)
+    function cancelMotion(uint motionID)
+        public
+        onlyDirectors
     {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
+        unimplimented();
     }
 
-    /// @return ID of the initiated motion.
-    function _initiateAddDirectors(bytes data)
-        internal
-        returns (uint)
+    function expireMotion(uint motionID)
+        public
     {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
+        unimplimented();
     }
 
-    /// @return ID of the initiated motion.
-    function _initiateRemoveDirectors(bytes data)
-        internal
-        returns (uint)
+    function votePasses(motion )
+
+    function voteForMotion(uint motionID)
+        public
+        onlyDirectors
     {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
+        Motion storage motion = getActiveMotion(motionID);
+        unimplimented();
+
     }
 
-    function _initiateSetFee(bytes data)
-        internal
-        returns (uint)
+    function voteAgainstMotion(uint motionID)
+        public
+        onlyDirectors
     {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
+        Motion storage motion = getActiveMotion(motionID);
+        unimplimented();
     }
 
-    function _initiateSetTimeLock(bytes data)
-        internal
-        returns (uint)
+    function abstainFromMotion(uint motionID)
+        public
+        onlyDirectors
     {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
+        Motion storage motion = getActiveMotion(motionID);
+        unimplimented();
     }
+    
 
-    function _initiateApproveToken(bytes data)
-        internal
-        returns (uint)
-    {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
-    }
-
-    function _initiateDisapproveToken(bytes data)
-        internal
-        returns (uint)
-    {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
-    }
 }
