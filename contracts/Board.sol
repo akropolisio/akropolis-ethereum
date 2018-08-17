@@ -1,4 +1,5 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.4.24;
+pragma experimental "v0.5.0";
 // TODO: Add licence header and file description info.
 // TODO: Natural specification.
 
@@ -39,9 +40,10 @@ D9: Remove approved investible token
 
 import "./utils/IterableSet.sol";
 import "./utils/BytesHandler.sol";
+import "./utils/Unimplemented.sol";
 import "./interfaces/PensionFund.sol";
 
-contract Board is BytesHandler {
+contract Board is BytesHandler, Unimplemented {
     using IterableSet for IterableSet.Set;
 
     enum MotionType {
@@ -56,15 +58,27 @@ contract Board is BytesHandler {
 
     enum VoteType {
         Absent,
+        Abstain,
         Yes,
         No
     }
 
+    /*
+     * Motions are created in the Active state.
+     * Available transitions:
+     *      Active -> Expired   (time passes)
+     *      Active -> Cancelled (initiator cancels motion)
+     *      Active -> Failed    (enough directors vote against)
+     *      Active -> Passed    (enough directors vote in favour)
+     *      Passed -> Executed  (execution function is called)
+     *      Passed -> ExecutionFailed ( :( )
+     */
     enum MotionStatus {
         Cancelled,
         Active,
-        Executed,
+        Passed,
         Failed,
+        Executed,
         ExecutionFailed,
         Expired
     }
@@ -108,13 +122,6 @@ contract Board is BytesHandler {
                 directors.add(initialDirectors[i]);
             }
         }
-    }
-
-    function unimplimented() 
-        internal
-        pure
-    {
-        revert("Unimplimented.");
     }
 
     function isDirector(address director)
@@ -205,14 +212,14 @@ contract Board is BytesHandler {
         internal
         returns (bool)
     {
-        unimplimented();
+        unimplemented();
     }
 
     function executeAddDirectors(bytes data)
         internal
         returns (bool)
     {
-        unimplimented();
+        unimplemented();
     }
 
     /// @return ID of the initiated motion.
@@ -220,35 +227,35 @@ contract Board is BytesHandler {
         internal
         returns (bool)
     {
-        unimplimented();
+        unimplemented();
     }
 
     function executeSetFee(bytes data)
         internal
         returns (bool)
     {
-        unimplimented();
+        unimplemented();
     }
 
     function executeSetTimeLock(bytes data)
         internal
         returns (bool)
     {
-        unimplimented();
+        unimplemented();
     }
 
     function executeApproveTokens(bytes data)
         internal
         returns (bool)
     {
-        unimplimented();
+        unimplemented();
     }
 
     function executeDisapproveTokens(bytes data)
         internal
         returns (bool)
     {
-        unimplimented();
+        unimplemented();
     }
 
     function executeMotion(uint motionID)
@@ -284,41 +291,115 @@ contract Board is BytesHandler {
         public
         onlyDirectors
     {
-        unimplimented();
+        unimplemented();
     }
 
     function expireMotion(uint motionID)
         public
     {
-        unimplimented();
+        unimplemented();
     }
 
-    function votePasses(motion )
+    function motionPasses(uint motionID) 
+        public
+        view
+        returns (bool)
+    {
+        return _motionPasses(getActiveMotion(motionID));
+    }
+
+    function _motionPasses(Motion storage motion)
+        internal
+        view
+        returns (bool)
+    {
+        return motion.votesFor > directors.size() / 2;
+    }
+
+    function motionFails(Motion storage motion)
+        internal
+        view
+        returns (bool)
+    {
+        return motion.votesAgainst >= directors.size() / 2;
+    }
 
     function voteForMotion(uint motionID)
         public
         onlyDirectors
+        returns (bool)
     {
         Motion storage motion = getActiveMotion(motionID);
-        unimplimented();
+        VoteType existingVote = motion.vote[msg.sender];
 
+        if (existingVote == VoteType.Yes) {
+            return false;
+        }
+
+        motion.vote[msg.sender] = VoteType.Yes;
+        motion.votesFor++;
+        if (existingVote == VoteType.No) {
+            motion.votesAgainst--;
+        }
+
+        if (_motionPasses(motion)) {
+            motion.status = MotionStatus.Passed;
+            return true;
+        }
+        return false;
     }
 
     function voteAgainstMotion(uint motionID)
         public
         onlyDirectors
+        returns (bool)
     {
         Motion storage motion = getActiveMotion(motionID);
-        unimplimented();
+        VoteType existingVote = motion.vote[msg.sender];
+
+        if (existingVote == VoteType.No) {
+            return false;
+        }
+
+        motion.vote[msg.sender] = VoteType.No;
+        motion.votesAgainst++;
+        if (existingVote == VoteType.Yes) {
+            motion.votesFor--;
+        }
+
+        if (motionFails(motion)) {
+            motion.status = MotionStatus.Failed;
+            return true;
+        }
+        return false;
     }
 
     function abstainFromMotion(uint motionID)
         public
         onlyDirectors
+        returns (bool)
     {
         Motion storage motion = getActiveMotion(motionID);
-        unimplimented();
-    }
-    
+        VoteType existingVote = motion.vote[msg.sender];
 
+        if (existingVote == VoteType.Abstain) {
+            return false;
+        }
+
+        motion.vote[msg.sender] = VoteType.Abstain;
+
+        if (existingVote == VoteType.Absent) {
+            return false;
+        }
+
+        if (existingVote == VoteType.Yes) {
+            bool passed = _motionPasses(motion);
+            motion.votesFor--;
+            return passed && !_motionPasses(motion);
+        }
+
+        bool failed = motionFails(motion);
+        motion.votesAgainst--;
+        return failed && !motionFails(motion);
+    }
 }
