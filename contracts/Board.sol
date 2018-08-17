@@ -61,8 +61,8 @@ contract Board is BytesHandler {
     }
 
     enum MotionStatus {
-        Active,
         Cancelled,
+        Active,
         Executed,
         Failed,
         ExecutionFailed,
@@ -110,6 +110,13 @@ contract Board is BytesHandler {
         }
     }
 
+    function unimplimented() 
+        internal
+        pure
+    {
+        revert("Unimplimented.");
+    }
+
     function isDirector(address director)
         public
         view
@@ -140,6 +147,17 @@ contract Board is BytesHandler {
     {
         require(directors.size() > 1, "Sole director cannot resign.");
         directors.remove(msg.sender);
+    }
+
+    function getActiveMotion(uint motionID)
+        internal
+        view
+        returns (Motion storage)
+    {
+        require(motionID < motions.length, "Invalid motion ID");
+        Motion storage motion = motions[motionID];
+        require(motion.status == MotionStatus.Active, "Motion is inactive.");
+        return motion;
     }
 
     function isValidMotionType(MotionType motionType)
@@ -183,13 +201,60 @@ contract Board is BytesHandler {
         return numMotions;
     }
 
+    function executeSetManager(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    function executeAddDirectors(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    /// @return ID of the initiated motion.
+    function executeRemoveDirectors(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    function executeSetFee(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    function executeSetTimeLock(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    function executeApproveTokens(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
+    function executeDisapproveTokens(bytes data)
+        internal
+        returns (bool)
+    {
+        unimplimented();
+    }
+
     function executeMotion(uint motionID)
         internal
     {
-        require(motionID < motions.length, "Invalid motion ID");
-
-        Motion storage motion = motions[motionID];
-        require(motion.status == MotionStatus.Active, "Motion is inactive.");
+        Motion storage motion = getActiveMotion(motionID);
 
         bytes storage data = motion.data;
         MotionType motionType = motion.motionType;
@@ -219,70 +284,41 @@ contract Board is BytesHandler {
         public
         onlyDirectors
     {
-        revert("Unimplimented function.");
+        unimplimented();
     }
 
     function expireMotion(uint motionID)
         public
     {
-        revert("Unimplimented function.");
+        unimplimented();
     }
 
-    function executeSetManager(bytes data)
-        internal
-        returns (bool)
+    function votePasses(motion )
+
+    function voteForMotion(uint motionID)
+        public
+        onlyDirectors
     {
-        // TODO: Test unimplimented throws properly.
+        Motion storage motion = getActiveMotion(motionID);
+        unimplimented();
 
-        revert("Unimplimented motion type.");
     }
 
-    function executeAddDirectors(bytes data)
-        internal
-        returns (bool)
+    function voteAgainstMotion(uint motionID)
+        public
+        onlyDirectors
     {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
+        Motion storage motion = getActiveMotion(motionID);
+        unimplimented();
     }
 
-    /// @return ID of the initiated motion.
-    function executeRemoveDirectors(bytes data)
-        internal
-        returns (bool)
+    function abstainFromMotion(uint motionID)
+        public
+        onlyDirectors
     {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
+        Motion storage motion = getActiveMotion(motionID);
+        unimplimented();
     }
+    
 
-    function executeSetFee(bytes data)
-        internal
-        returns (bool)
-    {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
-    }
-
-    function executeSetTimeLock(bytes data)
-        internal
-        returns (bool)
-    {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
-    }
-
-    function executeApproveTokens(bytes data)
-        internal
-        returns (bool)
-    {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
-    }
-
-    function executeDisapproveTokens(bytes data)
-        internal
-        returns (bool)
-    {
-        // TODO: Test unimplimented throws properly.
-        revert("Unimplimented motion type.");
-    }
 }
