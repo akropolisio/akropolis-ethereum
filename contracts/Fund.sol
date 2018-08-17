@@ -3,12 +3,13 @@ pragma experimental "v0.5.0";
 
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
+import "./Board.sol";
 
 // The fund itself should have non-transferrable shares which represent share in the fund.
 contract AkropolisFund {
     using IterableSet for IterableSet.Set;
 
-    address public board; // TODO: This should be of type Board, once we merge in the `board-of-directors` branch.
+    Board public board;
     address public manager;
 
     // Percentage of AUM over one year.
@@ -28,12 +29,55 @@ contract AkropolisFund {
     // Each user has a time after which they can withdraw benefits. Can be modified by fund directors.
     mapping(address => uint) public memberTimeLock;
 
+    // U9 - View a funds name
+    // The name of the fund
+    string public fundName;
+
+    struct JoinRequest {
+        uint unlockTime;
+        uint initialContribution;
+        address user;
+    }
+
+    // Should be iterable set
+    JoinRequest[] requests;
+
+    //
+    // events
+    //
+
+    // todo: more thought on this & actual use
+    event Withdraw(address indexed user, uint indexed amount);
+    event ApproveToken(address indexed ERC20Token);
+    event RemoveToken(address indexed ERC20Token);
+
+    // 
+    // modifiers
+    //
+
     modifier onlyBoard() {
-        require(msg.sender == board, "Sender is not the Board of Directors.");
+        require(msg.sender == address(board), "Sender is not the Board of Directors.");
         _;
     }
+
     modifier onlyManager() {
-        require(msg.sender == board, "Sender is not the manager.");
+        require(msg.sender == manager, "Sender is not the manager.");
+        _;
+    }
+
+    modifier timelockExpired() {
+        // solium-disable-next-line security/no-block-members
+        require(now >= memberTimeLock[msg.sender], "Sender timelock has not yet expired.");
+        _;
+    }
+
+    modifier onlyMember() {
+        require(members.contains(msg.sender), "Sender is not a member of the fund.");
+        _;
+    }
+
+    modifier onlyNotMember() {
+        require(!members.contains(msg.sender), "Sender is already a member of the fund.");
         _;
     }
 
@@ -62,20 +106,27 @@ contract AkropolisFund {
     }
 
     // TODO: Add some structure for managing requests.
+    // U4 - Join a new fund
     function joinFund()
         public
+        onlyNotMember
     {
         revert("Unimplimented");
     }
 
+    // U6 - Must make a contribution to a fund if already a member
     function makeContribution()
         public
+        onlyMember
     {
         revert("Unimplimented");
     }
 
+    // U18 - Withdraw from a fund if my timelock has expired
     function withdrawBenefits()
         public
+        onlyMember
+        timelockExpired
     {
         revert("Unimplimented");
     }
