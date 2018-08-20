@@ -174,7 +174,7 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
         JoinRequest memory request = joinRequests[user];
 
         require(
-            request && !request.complete,
+            request.unlockTime != 0 && !request.complete,
             "Join request already completed or non-existant."
         );
 
