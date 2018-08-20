@@ -32,10 +32,10 @@ contract TestIterableSet {
         return set.items.length;
     }
 
-    function initialiseSet()
+    function initialise()
         public
     {
-        set.initialiseSet();
+        set.initialise();
     }
 
     function isInitialised()
