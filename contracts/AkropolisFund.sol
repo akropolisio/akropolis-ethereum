@@ -17,6 +17,9 @@ contract AkropolisFund is PensionFund {
     // TODO: Add a flat rate as well. Maybe also performance fees.
     uint public managementFeePerYear;
 
+    // TODO: set this somewhere
+    uint public minimumTerm;
+
     // Tokens that this fund is approved to own.
     // TODO: Make this effectively public with view functions.
     IterableSet.Set approvedTokens;
@@ -37,12 +40,10 @@ contract AkropolisFund is PensionFund {
     struct JoinRequest {
         uint unlockTime;
         uint initialContribution;
-        address user;
+        uint expectedContribution;
     }
 
-    // Should be iterable set
-    JoinRequest[] requests;
-
+    mapping(address => JoinRequest) requests;
     //
     // events
     //
@@ -51,6 +52,7 @@ contract AkropolisFund is PensionFund {
     event Withdraw(address indexed user, uint indexed amount);
     event ApproveToken(address indexed ERC20Token);
     event RemoveToken(address indexed ERC20Token);
+    event newJoinRequest(address indexed from);
 
     // 
     // modifiers
@@ -115,12 +117,15 @@ contract AkropolisFund is PensionFund {
 
     // TODO: Add some structure for managing requests.
     // U4 - Join a new fund
-    function joinFund()
+    function joinFund(uint lockupPeriod, uint initialContribution, uint expectedShares)
         public
         onlyNotMember
     {
-        revert("Unimplimented");
+        require(lockupPeriod >= minimumTerm, "Your lockup period is not long enough");
+        emit newJoinRequest(msg.sender);
+        requests[msg.sender] = JoinRequest(lockupPeriod, initialContribution, expectedShares);
     }
+
 
     // U6 - Must make a contribution to a fund if already a member
     function makeContribution()
