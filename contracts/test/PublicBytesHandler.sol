@@ -5,7 +5,7 @@ pragma experimental "v0.5.0";
 import "../utils/BytesHandler.sol";
 
 
-contract TestBytesHandler is BytesHandler {
+contract PublicBytesHandler is BytesHandler {
     function extractUint(bytes b, uint offset)
         pure
         public

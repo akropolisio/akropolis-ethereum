@@ -5,7 +5,7 @@ pragma experimental "v0.5.0";
 import "../Board.sol";
 
 
-contract TestBoard is Board {
+contract PublicBoard is Board {
     constructor(address[] initialDirectors)
         Board(initialDirectors)
         public

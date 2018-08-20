@@ -3,7 +3,7 @@ pragma experimental "v0.5.0";
 
 import "../utils/IterableSet.sol";
 
-contract TestIterableSet {
+contract PublicIterableSet {
     using IterableSet for IterableSet.Set;
 
     IterableSet.Set set;
