@@ -14,7 +14,7 @@ library IterableSet {
         _;
     }
 
-    function initialiseSet(Set storage s)
+    function initialise(Set storage s)
         internal
     {
         require(!s.isInitialised(), "Set must be uninitialised.");
@@ -26,7 +26,7 @@ library IterableSet {
         view
         returns (bool)
     {
-        return s.items.length != 0 && s.items[0] == 0;
+        return s.items.length != 0 && s.items[0] == address(0);
     }
 
     function size(Set storage s)
