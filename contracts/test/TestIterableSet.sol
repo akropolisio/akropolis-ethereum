@@ -24,6 +24,14 @@ contract TestIterableSet {
         return set.items[i];
     }
 
+    function itemsLength()
+        public
+        view
+        returns (uint)
+    {
+        return set.items.length;
+    }
+
     function initialiseSet()
         public
     {
