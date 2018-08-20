@@ -113,7 +113,7 @@ contract Board is BytesHandler, Unimplemented {
     constructor (address[] initialDirectors)
         public
     {
-        directors.initialiseSet();
+        directors.initialise();
         uint len = initialDirectors.length;
         // If no directors were given, the sender is the first director.
         if (len == 0) {

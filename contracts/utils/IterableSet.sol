@@ -78,7 +78,10 @@ library IterableSet {
         if (s.contains(a)) {
             // Find the index of `k` and swap it with the last item, remove last item
             uint newLength = s.items.length - 1;
-            s.items[s.indices[a]] = s.items[newLength]; 
+            address swappee = s.items[newLength];
+            uint oldIndex = s.indices[a];
+            s.items[oldIndex] = swappee;
+            s.indices[swappee] = oldIndex;
             delete s.items[newLength];
             s.items.length--;
             delete s.indices[a];
@@ -93,10 +96,11 @@ library IterableSet {
         returns (address)
     {   
         uint len = s.items.length - 1;
-        require(len > 1, "Cannot pop from empty Set.");
+        require(len > 0, "Cannot pop from empty Set.");
         address item = s.items[len];
         delete s.items[len];
         delete s.indices[item];
+        s.items.length--;
         return item;
     }
 }
