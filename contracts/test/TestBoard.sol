@@ -6,6 +6,11 @@ import "../Board.sol";
 
 
 contract TestBoard is Board {
+    constructor(address[] initialDirectors)
+        Board(initialDirectors)
+        public
+    {}
+
     function getActiveMotion(uint motionID)
         public
         view
