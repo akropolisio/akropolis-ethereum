@@ -156,7 +156,7 @@ contract Board is BytesHandler, Unimplemented {
         directors.remove(msg.sender);
     }
 
-    function getActiveMotion(uint motionID)
+    function _getActiveMotion(uint motionID)
         internal
         view
         returns (Motion storage)
@@ -167,7 +167,8 @@ contract Board is BytesHandler, Unimplemented {
         return motion;
     }
 
-    function isValidMotionType(MotionType motionType)
+    function _isValidMotionType(MotionType motionType)
+        pure
         internal
         returns (bool)
     {
@@ -190,7 +191,7 @@ contract Board is BytesHandler, Unimplemented {
         // TODO: Test that motion type ends up mapping to the appropriate motion type.
         // TODO: Test that duration is properly set for all motion types.
 
-        require(isValidMotionType(motionType), "Invalid motion type.");
+        require(_isValidMotionType(motionType), "Invalid motion type.");
         require(data.length > 0, "Data must not be empty.");
         uint numMotions = motions.length;
 
@@ -208,50 +209,49 @@ contract Board is BytesHandler, Unimplemented {
         return numMotions;
     }
 
-    function executeSetManager(bytes data)
+    function _executeSetManager(bytes data)
+        internal
+        returns (bool)
+    {
+        return fund.setManager(_extractAddress(data, 0));
+    }
+
+    function _executeAddDirectors(bytes data)
         internal
         returns (bool)
     {
         unimplemented();
     }
 
-    function executeAddDirectors(bytes data)
+    function _executeRemoveDirectors(bytes data)
         internal
         returns (bool)
     {
         unimplemented();
     }
 
-    /// @return ID of the initiated motion.
-    function executeRemoveDirectors(bytes data)
+    function _executeSetFee(bytes data)
         internal
         returns (bool)
     {
         unimplemented();
     }
 
-    function executeSetFee(bytes data)
+    function _executeSetTimeLock(bytes data)
         internal
         returns (bool)
     {
         unimplemented();
     }
 
-    function executeSetTimeLock(bytes data)
+    function _executeApproveTokens(bytes data)
         internal
         returns (bool)
     {
         unimplemented();
     }
 
-    function executeApproveTokens(bytes data)
-        internal
-        returns (bool)
-    {
-        unimplemented();
-    }
-
-    function executeDisapproveTokens(bytes data)
+    function _executeDisapproveTokens(bytes data)
         internal
         returns (bool)
     {
@@ -263,26 +263,26 @@ contract Board is BytesHandler, Unimplemented {
         onlyDirectors
         returns (bool)
     {
-        Motion storage motion = getActiveMotion(motionID);
+        Motion storage motion = _getActiveMotion(motionID);
 
         bytes storage data = motion.data;
         MotionType motionType = motion.motionType;
         bool result;
 
         if (motionType == MotionType.SetManager) {
-            result = executeSetManager(data);
+            result = _executeSetManager(data);
         } else if (motionType == MotionType.AddDirectors) {
-            result = executeAddDirectors(data);
+            result = _executeAddDirectors(data);
         } else if (motionType == MotionType.RemoveDirectors) {
-            result = executeRemoveDirectors(data);
+            result = _executeRemoveDirectors(data);
         } else if (motionType == MotionType.SetFee) {
-            result = executeSetFee(data);
+            result = _executeSetFee(data);
         } else if (motionType == MotionType.SetTimeLock) {
-            result = executeSetTimeLock(data);
+            result = _executeSetTimeLock(data);
         } else if (motionType == MotionType.ApproveTokens) {
-            result = executeApproveTokens(data);
+            result = _executeApproveTokens(data);
         } else if (motionType == MotionType.DisapproveTokens) {
-            result = executeDisapproveTokens(data);
+            result = _executeDisapproveTokens(data);
         } else {
             // TODO: Verify that this reverts correctly.
             revert("Unsupported motion type.");
@@ -301,7 +301,7 @@ contract Board is BytesHandler, Unimplemented {
         public
         onlyDirectors
     {
-        Motion storage motion = getActiveMotion(motionID);
+        Motion storage motion = _getActiveMotion(motionID);
         require(msg.sender == motion.initiator, "Only the initiator may cancel a motion.");
         require(motion.votesFor + motion.votesAgainst == 0, "Motions with non-abstention votes cannot be cancelled.");
         motion.status = MotionStatus.Cancelled;
@@ -311,7 +311,7 @@ contract Board is BytesHandler, Unimplemented {
         public
         onlyDirectors
     {
-        Motion storage motion = getActiveMotion(motionID);
+        Motion storage motion = _getActiveMotion(motionID);
         require(motion.expiry < now, "Motion has not expired.");
         motion.status = MotionStatus.Expired;
     }
@@ -321,8 +321,17 @@ contract Board is BytesHandler, Unimplemented {
         view
         returns (bool)
     {
-        return _motionPasses(getActiveMotion(motionID));
+        return _motionPasses(_getActiveMotion(motionID));
     }
+
+    function motionFails(uint motionID) 
+        public
+        view
+        returns (bool)
+    {
+        return _motionFails(_getActiveMotion(motionID));
+    }
+
 
     function _motionPasses(Motion storage motion)
         internal
@@ -332,7 +341,7 @@ contract Board is BytesHandler, Unimplemented {
         return motion.votesFor > directors.size() / 2;
     }
 
-    function motionFails(Motion storage motion)
+    function _motionFails(Motion storage motion)
         internal
         view
         returns (bool)
@@ -345,7 +354,7 @@ contract Board is BytesHandler, Unimplemented {
         onlyDirectors
         returns (bool)
     {
-        Motion storage motion = getActiveMotion(motionID);
+        Motion storage motion = _getActiveMotion(motionID);
         VoteType existingVote = motion.vote[msg.sender];
 
         if (existingVote == VoteType.Yes) {
@@ -370,7 +379,7 @@ contract Board is BytesHandler, Unimplemented {
         onlyDirectors
         returns (bool)
     {
-        Motion storage motion = getActiveMotion(motionID);
+        Motion storage motion = _getActiveMotion(motionID);
         VoteType existingVote = motion.vote[msg.sender];
 
         if (existingVote == VoteType.No) {
@@ -383,7 +392,7 @@ contract Board is BytesHandler, Unimplemented {
             motion.votesFor--;
         }
 
-        if (motionFails(motion)) {
+        if (_motionFails(motion)) {
             motion.status = MotionStatus.Failed;
             return true;
         }
@@ -395,7 +404,7 @@ contract Board is BytesHandler, Unimplemented {
         onlyDirectors
         returns (bool)
     {
-        Motion storage motion = getActiveMotion(motionID);
+        Motion storage motion = _getActiveMotion(motionID);
         VoteType existingVote = motion.vote[msg.sender];
 
         if (existingVote == VoteType.Abstain) {
@@ -414,8 +423,8 @@ contract Board is BytesHandler, Unimplemented {
             return passed && !_motionPasses(motion);
         }
 
-        bool failed = motionFails(motion);
+        bool failed = _motionFails(motion);
         motion.votesAgainst--;
-        return failed && !motionFails(motion);
+        return failed && !_motionFails(motion);
     }
 }

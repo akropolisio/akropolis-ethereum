@@ -6,19 +6,19 @@ import "../utils/BytesHandler.sol";
 
 
 contract TestBytesHandler is BytesHandler {
-    function _getUint(bytes b, uint offset)
+    function extractUint(bytes b, uint offset)
         pure
         public
         returns (uint)
     {
-        return getUint(b, offset);
+        return _extractUint(b, offset);
     }
 
-    function _getAddress(bytes b, uint offset)
+    function extractAddress(bytes b, uint offset)
         pure
         public
         returns (address)
     {
-        return getAddress(b, offset);
+        return _extractAddress(b, offset);
     }
 }

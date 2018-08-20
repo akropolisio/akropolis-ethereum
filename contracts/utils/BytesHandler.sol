@@ -6,7 +6,7 @@ contract BytesHandler {
 
     // TODO: Investigate if these are made more efficient by direct CALLDATA extraction.
 
-    function getUint(bytes b, uint offset)
+    function _extractUint(bytes b, uint offset)
         pure
         internal
         returns (uint)
@@ -18,7 +18,7 @@ contract BytesHandler {
         return uint(result);
     }
 
-    function getAddress(bytes b, uint offset)
+    function _extractAddress(bytes b, uint offset)
         pure
         internal
         returns (address)

@@ -48,8 +48,10 @@ contract AkropolisFund is PensionFund, Unimplemented {
     function setManager(address newManager) 
         external
         onlyBoard
+        returns (bool)
     {
         manager = newManager;
+        return true;
     }
 
     function approveTokens(ERC20Token[] tokens)
