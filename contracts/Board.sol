@@ -36,6 +36,10 @@ D7: Nullify an investor's time lock (lower quorum requirement?)
 D8: Add approved investible token
 D9: Remove approved investible token
 
+
+TODO: 
+Better process for votes, so that you can vote even if a vote has already passed, but not when it has executed.
+
 ***/
 
 import "./utils/IterableSet.sol";
@@ -106,9 +110,6 @@ contract Board is BytesHandler, Unimplemented {
     Motion[] public motions;
     PensionFund public fund;
 
-    // TODO: Write tests for this:
-    //       * all directors are properly initialised.
-    //       * if no directors provided then the sender is the first director.
     // TODO: Should charge AKT tokens.
     constructor (address[] initialDirectors)
         public
@@ -157,13 +158,39 @@ contract Board is BytesHandler, Unimplemented {
         directors.remove(msg.sender);
     }
 
-    function _getActiveMotion(uint motionID)
+    function numMotions()
+        public
+        view
+        returns (uint)
+    {
+        return motions.length;
+    }
+
+    function motionVote(uint motionID, address director)
+        public
+        view
+        returns (VoteType)
+    {
+        require(isDirector(director), "Provided address is not a director.");
+        Motion storage motion = _getActiveMotion(motionID);
+        return motion.vote[director];
+    }
+
+    function _getMotion(uint motionID)
         internal
         view
         returns (Motion storage)
     {
         require(motionID < motions.length, "Invalid motion ID");
-        Motion storage motion = motions[motionID];
+        return motions[motionID];
+    }
+
+    function _getActiveMotion(uint motionID)
+        internal
+        view
+        returns (Motion storage)
+    {
+        Motion storage motion = _getMotion(motionID);
         require(motion.status == MotionStatus.Active, "Motion is inactive.");
         return motion;
     }
@@ -188,16 +215,12 @@ contract Board is BytesHandler, Unimplemented {
         onlyDirectors
         returns (uint)
     {
-        // TODO: Add a test to ensure this thing throws if motionType not in range.
-        // TODO: Test that motion type ends up mapping to the appropriate motion type.
-        // TODO: Test that duration is properly set for all motion types.
-
         require(_isValidMotionType(motionType), "Invalid motion type.");
         require(data.length > 0, "Data must not be empty.");
-        uint numMotions = motions.length;
+        uint id = motions.length;
 
         motions.push(Motion(
-            numMotions,
+            id,
             motionType,
             MotionStatus.Active,
             msg.sender,
@@ -206,8 +229,7 @@ contract Board is BytesHandler, Unimplemented {
             description,
             data));
 
-        // TODO: Test that the returned id is actually the proper last id.
-        return numMotions;
+        return id;
     }
 
     function _executeSetManager(bytes data)
@@ -285,7 +307,6 @@ contract Board is BytesHandler, Unimplemented {
         } else if (motionType == MotionType.DisapproveTokens) {
             result = _executeDisapproveTokens(data);
         } else {
-            // TODO: Verify that this reverts correctly.
             revert("Unsupported motion type.");
         }
 
@@ -308,12 +329,21 @@ contract Board is BytesHandler, Unimplemented {
         motion.status = MotionStatus.Cancelled;
     }
 
+    function motionShouldExpire(uint motionID) 
+        public
+        view
+        returns (bool)
+    {
+        Motion storage motion = _getMotion(motionID);
+        return motion.expiry < now;
+    }
+
     function expireMotion(uint motionID)
         public
         onlyDirectors
     {
         Motion storage motion = _getActiveMotion(motionID);
-        require(motion.expiry < now, "Motion has not expired.");
+        require(motionShouldExpire(motionID), "Motion has not expired.");
         motion.status = MotionStatus.Expired;
     }
 
@@ -356,6 +386,12 @@ contract Board is BytesHandler, Unimplemented {
         returns (bool)
     {
         Motion storage motion = _getActiveMotion(motionID);
+
+        if (motionShouldExpire(motionID)) {
+            motion.status = MotionStatus.Expired;
+            return true;
+        }
+
         VoteType existingVote = motion.vote[msg.sender];
 
         if (existingVote == VoteType.Yes) {
@@ -381,6 +417,12 @@ contract Board is BytesHandler, Unimplemented {
         returns (bool)
     {
         Motion storage motion = _getActiveMotion(motionID);
+
+        if (motionShouldExpire(motionID)) {
+            motion.status = MotionStatus.Expired;
+            return true;
+        }
+
         VoteType existingVote = motion.vote[msg.sender];
 
         if (existingVote == VoteType.No) {
@@ -406,6 +448,12 @@ contract Board is BytesHandler, Unimplemented {
         returns (bool)
     {
         Motion storage motion = _getActiveMotion(motionID);
+
+        if (motionShouldExpire(motionID)) {
+            motion.status = MotionStatus.Expired;
+            return true;
+        }
+
         VoteType existingVote = motion.vote[msg.sender];
 
         if (existingVote == VoteType.Abstain) {

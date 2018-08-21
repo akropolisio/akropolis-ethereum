@@ -5,11 +5,19 @@ pragma experimental "v0.5.0";
 import "../Board.sol";
 
 
-contract TestBoard is Board {
+contract PublicBoard is Board {
     constructor(address[] initialDirectors)
         Board(initialDirectors)
         public
     {}
+
+    function getMotion(uint motionID)
+        public
+        view
+        returns (uint)
+    {
+        return _getMotion(motionID).id;
+    }
 
     function getActiveMotion(uint motionID)
         public
