@@ -110,9 +110,6 @@ contract Board is BytesHandler, Unimplemented {
     Motion[] public motions;
     PensionFund public fund;
 
-    // TODO: Write tests for this:
-    //       * all directors are properly initialised.
-    //       * if no directors provided then the sender is the first director.
     // TODO: Should charge AKT tokens.
     constructor (address[] initialDirectors)
         public
@@ -218,10 +215,6 @@ contract Board is BytesHandler, Unimplemented {
         onlyDirectors
         returns (uint)
     {
-        // TODO: Add a test to ensure this thing throws if motionType not in range.
-        // TODO: Test that motion type ends up mapping to the appropriate motion type.
-        // TODO: Test that duration is properly set for all motion types.
-
         require(_isValidMotionType(motionType), "Invalid motion type.");
         require(data.length > 0, "Data must not be empty.");
         uint id = motions.length;
@@ -236,7 +229,6 @@ contract Board is BytesHandler, Unimplemented {
             description,
             data));
 
-        // TODO: Test that the returned id is actually the proper last id.
         return id;
     }
 
@@ -315,7 +307,6 @@ contract Board is BytesHandler, Unimplemented {
         } else if (motionType == MotionType.DisapproveTokens) {
             result = _executeDisapproveTokens(data);
         } else {
-            // TODO: Verify that this reverts correctly.
             revert("Unsupported motion type.");
         }
 
