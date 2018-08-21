@@ -157,6 +157,16 @@ contract Board is BytesHandler, Unimplemented {
         directors.remove(msg.sender);
     }
 
+    function motionVote(uint motionID, address director)
+        public
+        view
+        returns (VoteType)
+    {
+        require(isDirector(director), "Provided address is not a director.");
+        Motion storage motion = _getActiveMotion(motionID);
+        return motion.vote[director];
+    }
+
     function _getActiveMotion(uint motionID)
         internal
         view
