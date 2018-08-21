@@ -175,13 +175,21 @@ contract Board is BytesHandler, Unimplemented {
         return motion.vote[director];
     }
 
-    function _getActiveMotion(uint motionID)
+    function _getMotion(uint motionID)
         internal
         view
         returns (Motion storage)
     {
         require(motionID < motions.length, "Invalid motion ID");
-        Motion storage motion = motions[motionID];
+        return motions[motionID];
+    }
+
+    function _getActiveMotion(uint motionID)
+        internal
+        view
+        returns (Motion storage)
+    {
+        Motion storage motion = _getMotion(motionID);
         require(motion.status == MotionStatus.Active, "Motion is inactive.");
         return motion;
     }
@@ -212,10 +220,10 @@ contract Board is BytesHandler, Unimplemented {
 
         require(_isValidMotionType(motionType), "Invalid motion type.");
         require(data.length > 0, "Data must not be empty.");
-        uint numMotions = motions.length;
+        uint id = motions.length;
 
         motions.push(Motion(
-            numMotions,
+            id,
             motionType,
             MotionStatus.Active,
             msg.sender,
@@ -225,7 +233,7 @@ contract Board is BytesHandler, Unimplemented {
             data));
 
         // TODO: Test that the returned id is actually the proper last id.
-        return numMotions;
+        return id;
     }
 
     function _executeSetManager(bytes data)
@@ -326,12 +334,21 @@ contract Board is BytesHandler, Unimplemented {
         motion.status = MotionStatus.Cancelled;
     }
 
+    function motionShouldExpire(uint motionID) 
+        public
+        view
+        returns (bool)
+    {
+        Motion storage motion = _getMotion(motionID);
+        return motion.expiry < now;
+    }
+
     function expireMotion(uint motionID)
         public
         onlyDirectors
     {
         Motion storage motion = _getActiveMotion(motionID);
-        require(motion.expiry < now, "Motion has not expired.");
+        require(motionShouldExpire(motionID), "Motion has not expired.");
         motion.status = MotionStatus.Expired;
     }
 
@@ -374,6 +391,12 @@ contract Board is BytesHandler, Unimplemented {
         returns (bool)
     {
         Motion storage motion = _getActiveMotion(motionID);
+
+        if (motionShouldExpire(motionID)) {
+            motion.status = MotionStatus.Expired;
+            return true;
+        }
+
         VoteType existingVote = motion.vote[msg.sender];
 
         if (existingVote == VoteType.Yes) {
@@ -399,6 +422,12 @@ contract Board is BytesHandler, Unimplemented {
         returns (bool)
     {
         Motion storage motion = _getActiveMotion(motionID);
+
+        if (motionShouldExpire(motionID)) {
+            motion.status = MotionStatus.Expired;
+            return true;
+        }
+
         VoteType existingVote = motion.vote[msg.sender];
 
         if (existingVote == VoteType.No) {
@@ -424,6 +453,12 @@ contract Board is BytesHandler, Unimplemented {
         returns (bool)
     {
         Motion storage motion = _getActiveMotion(motionID);
+
+        if (motionShouldExpire(motionID)) {
+            motion.status = MotionStatus.Expired;
+            return true;
+        }
+
         VoteType existingVote = motion.vote[msg.sender];
 
         if (existingVote == VoteType.Abstain) {

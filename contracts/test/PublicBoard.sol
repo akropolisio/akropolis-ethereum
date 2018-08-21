@@ -11,6 +11,14 @@ contract PublicBoard is Board {
         public
     {}
 
+    function getMotion(uint motionID)
+        public
+        view
+        returns (uint)
+    {
+        return _getMotion(motionID).id;
+    }
+
     function getActiveMotion(uint motionID)
         public
         view
