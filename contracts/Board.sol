@@ -36,6 +36,10 @@ D7: Nullify an investor's time lock (lower quorum requirement?)
 D8: Add approved investible token
 D9: Remove approved investible token
 
+
+TODO: 
+Better process for votes, so that you can vote even if a vote has already passed, but not when it has executed.
+
 ***/
 
 import "./utils/IterableSet.sol";
