@@ -157,6 +157,14 @@ contract Board is BytesHandler, Unimplemented {
         directors.remove(msg.sender);
     }
 
+    function numMotions()
+        public
+        view
+        returns (uint)
+    {
+        return motions.length;
+    }
+
     function motionVote(uint motionID, address director)
         public
         view
