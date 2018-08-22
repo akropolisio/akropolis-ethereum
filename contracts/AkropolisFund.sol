@@ -2,13 +2,13 @@ pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
 import "./Board.sol";
+import "./NontransferableShare.sol";
 import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
 import "./utils/Unimplemented.sol";
 
-// The fund itself should have non-transferable shares which represent share in the fund.
-contract AkropolisFund is PensionFund, Unimplemented {
+contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     using IterableSet for IterableSet.Set;
 
     // The pension fund manger
@@ -122,9 +122,12 @@ contract AkropolisFund is PensionFund, Unimplemented {
         uint _joiningFee,
         ERC20Token _denominatingAsset,
         ERC20Token _AkropolisToken,
-        string _fundName
+        string _fundName,
+        string _name,
+        string _symbol
     )
-      public
+        NontransferableShare(_name, _symbol)
+        public
     {
         manager = msg.sender;
         board = _board;
