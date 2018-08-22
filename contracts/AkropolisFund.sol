@@ -12,8 +12,11 @@ import "./utils/Unimplemented.sol";
 contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
     using IterableSet for IterableSet.Set;
 
-    Board public board;
+    // The pension fund manger
     address public manager;
+
+    // The board contract, when the board wants to interact with the fund
+    Board public board;
 
     // Percentage of AUM over one year.
     // TODO: Add a flat rate as well. Maybe also performance fees.
@@ -51,6 +54,7 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
     // The users tokens in the fund, non-transferable
     mapping(address => uint) public fundTokens;
 
+    // Mapping of candidate members to their join request
     mapping(address => JoinRequest) joinRequests;
 
     //
@@ -101,6 +105,7 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
     }
 
     constructor(
+        Board _board,
         uint _managementFeePerYear,
         uint _minimumTerm,
         uint _joiningFee,
@@ -110,6 +115,8 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
     )
       public
     {
+        manager = msg.sender;
+        board = _board;
         managementFeePerYear = _managementFeePerYear;
         minimumTerm = _minimumTerm;
         joiningFee = _joiningFee;
@@ -157,20 +164,41 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
         require(contributions.length == tokens.length, "tokens and contributions length differ");
 
         // Store the request on the blockchain
-        joinRequests[msg.sender] = JoinRequest(now + lockupPeriod, tokens, contributions, expectedShares, true);
+        joinRequests[msg.sender] = JoinRequest(
+            // solium-disable-next-line security/no-block-members
+            now + lockupPeriod,
+            tokens,
+            contributions,
+            expectedShares,
+            true
+        );
 
         // Check that they have approved us for the fee
-        require(AkropolisToken.allowance(msg.sender, this) >= joiningFee, "Joining fee not approved for fund");
+        require(
+            AkropolisToken.allowance(msg.sender, this) >= joiningFee,
+            "Joining fee not approved for fund"
+        );
 
         // Check that they have approved us for their initial contributions
         for (uint i = 0; i < contributions.length; i++) {
             ERC20Token token = tokens[i];
 
-            // if the token they're doing the initial contribution in is AKT, then we must subtract the joining fee from the allowance dom was here
+            // ensure the token is approved
+            require(approvedTokens.contains(token), "Request includes non-approved token");
+
+            // if the token they're doing the initial contribution in is AKT, then we must subtract the 
+            // joining fee from the allowance dom was here
             if (address(token) == address(AkropolisToken)) {
-                require((token.allowance(msg.sender, this) - joiningFee) >= contributions[i], "initial contribution allowance not equal to argument");
+                uint allowanceWithoutJoiningFee = token.allowance(msg.sender, this) - joiningFee;
+                require(
+                    allowanceWithoutJoiningFee >= contributions[i],
+                    "initial contribution allowance not equal to argument"
+                );
             }
-            require(token.allowance(msg.sender, this) >= contributions[i], "initial contribution allowance not equal to argument");
+            require(
+                token.allowance(msg.sender, this) >= contributions[i],
+                "initial contribution allowance not equal to argument"
+            );
         }
 
         // Emit an event now that we've passed all the criteria for submitting a request to join
@@ -199,7 +227,12 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
         // Transfer their initial contribution to the fund
         for (uint i = 0; i < contributions.length; i++) {
             ERC20Token token = tokens[i];
-            require(token.transferFrom(msg.sender, this, contributions[i]), "Unable to withdraw contribution");
+            // ensure the token is approved
+            require(approvedTokens.contains(token), "Request includes non-approved token");
+            require(
+                token.transferFrom(msg.sender, this, contributions[i]),
+                "Unable to withdraw contribution"
+            );
         }
 
         // Add them as a member
