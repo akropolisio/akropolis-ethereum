@@ -17,7 +17,7 @@ contract NontransferableShare is SafeDecimalMath {
         symbol = _symbol;
     }
 
-    function createShares(address account, uint quantity) 
+    function _createShares(address account, uint quantity) 
         internal
     {
         balanceOf[account] = safeAdd(balanceOf[account], quantity);
@@ -26,7 +26,7 @@ contract NontransferableShare is SafeDecimalMath {
         emit Transfer(address(0), account, quantity);
     }
 
-    function destroyShares(address account, uint quantity) 
+    function _destroyShares(address account, uint quantity) 
         internal
     {
         // safeSub() handles insufficient balance.
@@ -36,7 +36,7 @@ contract NontransferableShare is SafeDecimalMath {
         emit Transfer(account, address(0), quantity);
     }
 
-    function transfer(address from, address to, uint quantity)
+    function _transfer(address from, address to, uint quantity)
         internal
     {
         // safeSub() handles insufficient balance.
@@ -45,9 +45,7 @@ contract NontransferableShare is SafeDecimalMath {
         emit Transfer(from, to, quantity);
     }
 
-
     event CreatedShares(address indexed account, uint quantity);
     event DestroyedShares(address indexed account, uint quantity);
     event Transfer(address indexed from, address indexed to, uint quantity);
-
 }
