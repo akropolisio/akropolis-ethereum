@@ -8,7 +8,7 @@ import "./utils/IterableSet.sol";
 import "./utils/FundObjects.sol";
 import "./utils/Unimplemented.sol";
 
-// The fund itself should have non-transferrable shares which represent share in the fund.
+// The fund itself should have non-transferable shares which represent share in the fund.
 contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
     using IterableSet for IterableSet.Set;
 
@@ -25,6 +25,9 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
     // TODO: let this have a setter method
     uint public joiningFee;
 
+    // Total fund tokens
+    uint public totalFundTokens;
+
     // Tokens that this fund is approved to own.
     // TODO: Make this effectively public with view functions.
     IterableSet.Set approvedTokens;
@@ -38,20 +41,18 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
     // TODO: Make this effectively public with view functions.
     IterableSet.Set members;
 
+    // U9 - View a funds name
+    // The name of the fund
+    string public fundName;
+
     // Each user has a time after which they can withdraw benefits. Can be modified by fund directors.
     mapping(address => uint) public memberTimeLock;
 
     // The users tokens in the fund, non-transferable
     mapping(address => uint) public fundTokens;
 
-    // Total fund tokens
-    uint public totalFundTokens;
-
-    // U9 - View a funds name
-    // The name of the fund
-    string public fundName;
-
     mapping(address => JoinRequest) joinRequests;
+
     //
     // events
     //
@@ -93,10 +94,28 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
         _;
     }
 
-    constructor()
+    modifier noPendingJoin() {
+        JoinRequest memory request = joinRequests[msg.sender];
+        require(!request.pending, "Join request pending.");
+        _;
+    }
+
+    constructor(
+        uint _managementFeePerYear,
+        uint _minimumTerm,
+        uint _joiningFee,
+        ERC20Token _denominatingAsset,
+        ERC20Token _AkropolisToken,
+        string _fundName
+    )
       public
     {
-        unimplemented();
+        managementFeePerYear = _managementFeePerYear;
+        minimumTerm = _minimumTerm;
+        joiningFee = _joiningFee;
+        denominatingAsset = _denominatingAsset;
+        AkropolisToken = _AkropolisToken;
+        fundName = _fundName;
     }
 
     function setManager(address newManager) 
@@ -130,23 +149,15 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
     function joinFund(uint lockupPeriod, ERC20Token[] tokens, uint[] contributions, uint expectedShares)
         public
         onlyNotMember
+        noPendingJoin
     {
-        // POSSIBLE RACE CONDITION:
-        // * User submits reasonable join request
-        // * Manager reviews join request
-        // * User updates join request to not be reasonable
-        // * Manager approves join request based on user address, but join request has been modified and not review since then
-        //
-        // Way around this: something with a hash or don't allow modifications of join requests
-        // Should not be an issue for now?
-
         require(lockupPeriod >= minimumTerm, "Your lockup period is not long enough");
 
         // Check that the arguments are formed correctly
         require(contributions.length == tokens.length, "tokens and contributions length differ");
 
         // Store the request on the blockchain
-        joinRequests[msg.sender] = JoinRequest(lockupPeriod, tokens, contributions, expectedShares, false);
+        joinRequests[msg.sender] = JoinRequest(now + lockupPeriod, tokens, contributions, expectedShares, true);
 
         // Check that they have approved us for the fee
         require(AkropolisToken.allowance(msg.sender, this) >= joiningFee, "Joining fee not approved for fund");
@@ -174,7 +185,7 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
         JoinRequest memory request = joinRequests[user];
 
         require(
-            request.unlockTime != 0 && !request.complete,
+            request.unlockTime != 0 && request.pending,
             "Join request already completed or non-existant."
         );
 
@@ -196,7 +207,9 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
         // Emit event
         emit newMemberAccepted(user);
         // Change state to complete
-        joinRequests[user].complete = true;
+        joinRequests[user].pending = false;
+        // Set their in the mapping
+        memberTimeLock[user] = request.unlockTime;
     }
 
 

@@ -11,6 +11,6 @@ contract FundObjects {
         ERC20Token[] tokens;
         uint[] contributions;
         uint expectedShares;
-        bool complete;
+        bool pending;
     }
 }
