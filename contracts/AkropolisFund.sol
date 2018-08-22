@@ -5,11 +5,10 @@ import "./Board.sol";
 import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
-import "./utils/FundObjects.sol";
 import "./utils/Unimplemented.sol";
 
 // The fund itself should have non-transferable shares which represent share in the fund.
-contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
+contract AkropolisFund is PensionFund, Unimplemented {
     using IterableSet for IterableSet.Set;
 
     // The pension fund manger
@@ -56,6 +55,18 @@ contract AkropolisFund is PensionFund, Unimplemented, FundObjects {
 
     // Mapping of candidate members to their join request
     mapping(address => JoinRequest) joinRequests;
+
+    //
+    // structs
+    //
+
+    struct JoinRequest {
+        uint unlockTime;
+        ERC20Token[] tokens;
+        uint[] contributions;
+        uint expectedShares;
+        bool pending;
+    }
 
     //
     // events
