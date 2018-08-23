@@ -116,15 +116,15 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     }
 
     constructor(
+        string _name,
+        string _symbol,
         Board _board,
         uint _managementFeePerYear,
         uint _minimumTerm,
         uint _joiningFee,
         ERC20Token _denominatingAsset,
         ERC20Token _AkropolisToken,
-        string _fundName,
-        string _name,
-        string _symbol
+        string _fundName
     )
         NontransferableShare(_name, _symbol)
         public

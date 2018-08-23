@@ -4,13 +4,17 @@ pragma experimental "v0.5.0";
 import "../interfaces/ERC20Token.sol";
 import "../utils/SafeDecimalMath.sol";
 
-contract TestToken is ERC20Token, SafeDecimalMath {
+contract TestToken is SafeDecimalMath {
 
     string public symbol;
     uint public totalSupply;
+    uint8 public constant decimals = 18;
 
     mapping(address => uint) public balanceOf;
     mapping(address => mapping(address => uint)) public allowance;
+
+    event Transfer(address indexed from, address indexed to, uint quantity);
+    event Approval(address indexed owner, address indexed spender, uint quantity);
 
     constructor(string _symbol, uint total) public {
         symbol = _symbol;
