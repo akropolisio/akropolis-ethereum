@@ -43,10 +43,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     // TODO: Make this effectively public with view functions.
     IterableSet.Set members;
 
-    // U9 - View a funds name
-    // The name of the fund
-    string public fundName;
-
     // Each user has a time after which they can withdraw benefits. Can be modified by fund directors.
     mapping(address => uint) public memberTimeLock;
 
@@ -122,7 +118,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         uint _joiningFee,
         ERC20Token _denominatingAsset,
         ERC20Token _AkropolisToken,
-        string _fundName,
         string _name,
         string _symbol
     )
@@ -136,7 +131,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         joiningFee = _joiningFee;
         denominatingAsset = _denominatingAsset;
         AkropolisToken = _AkropolisToken;
-        fundName = _fundName;
     }
 
     function setManager(address newManager) 
