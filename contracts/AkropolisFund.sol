@@ -131,6 +131,9 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         joiningFee = _joiningFee;
         denominatingAsset = _denominatingAsset;
         AkropolisToken = _AkropolisToken;
+
+        members.initialise();
+        approvedTokens.initialise();
     }
 
     function setManager(address newManager) 
