@@ -7,7 +7,7 @@ import "../utils/SafeDecimalMath.sol";
 contract TestToken is ERC20Token, SafeDecimalMath {
     constructor(string _symbol, uint total) public {
         symbol = _symbol;
-        totalSupply = total * 10**uint(decimals);
+        totalSupply = total * UNIT;
         balanceOf[msg.sender] = totalSupply;
         emit Transfer(address(0), msg.sender, totalSupply);
     }
