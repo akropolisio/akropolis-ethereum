@@ -44,7 +44,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     mapping(address => uint) public memberTimeLock;
 
     // Mapping of candidate members to their join request
-    mapping(address => JoinRequest) joinRequests;
+    mapping(address => JoinRequest) public joinRequests;
 
     //
     // structs
@@ -305,6 +305,22 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         returns (uint[])
     {
         unimplemented();
+    }
+
+    function joinRequestsTokenContributionAtIndex(address user, uint index)
+        external
+        view
+        returns (address, uint)
+    {
+        return (joinRequests[user].tokens[index], joinRequests[user].contributions[index]);
+    }
+
+    function joinRequestContributionLength(address user)
+        external
+        view
+        returns (uint)
+    {
+        return joinRequests[user].contributions.length;
     }
 
 }
