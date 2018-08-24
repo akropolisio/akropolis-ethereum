@@ -27,9 +27,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     // TODO: let this have a setter method
     uint public joiningFee;
 
-    // Total fund tokens
-    uint public totalFundTokens;
-
     // Tokens that this fund is approved to own.
     // TODO: Make this effectively public with view functions.
     IterableSet.Set approvedTokens;
@@ -45,9 +42,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
 
     // Each user has a time after which they can withdraw benefits. Can be modified by fund directors.
     mapping(address => uint) public memberTimeLock;
-
-    // The users tokens in the fund, non-transferable
-    mapping(address => uint) public fundTokens;
 
     // Mapping of candidate members to their join request
     mapping(address => JoinRequest) joinRequests;
@@ -230,7 +224,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
 
         // Take our fees + contribution
         // This may fail if the joining fee rises, or if they have modified their allowance
-        require(AkropolisToken.transferFrom(msg.sender, this, joiningFee), "Joining fee deduction failed");
+        require(AkropolisToken.transferFrom(user, this, joiningFee), "Joining fee deduction failed");
 
         ERC20Token[] memory tokens = request.tokens;
         uint[] memory contributions = request.contributions;
@@ -241,7 +235,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
             // ensure the token is approved
             require(approvedTokens.contains(token), "Request includes non-approved token");
             require(
-                token.transferFrom(msg.sender, this, contributions[i]),
+                token.transferFrom(user, this, contributions[i]),
                 "Unable to withdraw contribution"
             );
         }
@@ -254,6 +248,8 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         joinRequests[user].pending = false;
         // Set their in the mapping
         memberTimeLock[user] = request.unlockTime;
+        // Give the user their requested shares in the fund
+        _createShares(user, request.expectedShares);
     }
 
 
