@@ -231,6 +231,13 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         delete joinRequests[user];
     }
 
+    function cancelJoinRequest()
+        public
+        onlyNotMember
+    {
+        delete joinRequests[msg.sender];
+    }
+
     function approveJoinRequest(address user)
         public
         onlyManager
@@ -304,13 +311,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     function withdrawFees()
         public
         onlyManager
-    {
-        unimplemented();
-    }
-
-    function cancelJoinRequest()
-        public
-        onlyNotMember
     {
         unimplemented();
     }
