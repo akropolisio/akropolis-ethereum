@@ -228,15 +228,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         public
         onlyManager
     {
-        JoinRequest memory request = joinRequests[user];
-
-        require(
-            request.unlockTime != 0 && request.pending,
-            "Join request already completed or non-existant."
-        );
-
         delete joinRequests[user];
-
     }
 
     function approveJoinRequest(address user)
