@@ -308,16 +308,9 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         unimplemented();
     }
 
-    function executeRequest()
+    function cancelJoinRequest()
         public
-        onlyManager
-    {
-        unimplemented();
-    }
-    
-    function cancelRequest()
-        public
-        onlyManager
+        onlyNotMember
     {
         unimplemented();
     }
