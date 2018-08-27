@@ -46,16 +46,25 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     // Mapping of candidate members to their join request
     mapping(address => JoinRequest) public joinRequests;
 
+    // mapping of candidate members to their historic contributions.
+    mapping(address => Contribution[]) public contributions;
+
     //
     // structs
     //
 
     struct JoinRequest {
         uint unlockTime;
-        ERC20Token[] tokens;
-        uint[] contributions;
+        ERC20Token token;
+        uint initialContribution;
         uint expectedShares;
         bool pending;
+    }
+
+    struct Contribution {
+        address contributor;
+        address token;
+        uint quantity;
     }
 
     //
@@ -89,8 +98,8 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         _;
     }
 
-    modifier onlyMember() {
-        require(members.contains(msg.sender), "Sender is not a member of the fund.");
+    modifier onlyMember(address account) {
+        require(members.contains(account), "Sender is not a member of the fund.");
         _;
     }
 
@@ -102,6 +111,11 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     modifier noPendingJoin() {
         JoinRequest memory request = joinRequests[msg.sender];
         require(!request.pending, "Join request pending.");
+        _;
+    }
+
+    modifier onlyApprovedToken(address token) {
+        require(approvedTokens.contains(token), "Token is not approved.");
         _;
     }
 
@@ -128,6 +142,9 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
 
         members.initialise();
         approvedTokens.initialise();
+
+        // By default, the denominating asset is an approved investible token.
+        approvedTokens.add(denominatingAsset);
     }
 
     function setManager(address newManager) 
@@ -158,22 +175,22 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     }
 
     // U4 - Join a new fund
-    function joinFund(uint lockupPeriod, ERC20Token[] tokens, uint[] contributions, uint expectedShares)
+    function joinFund(uint lockupPeriod, ERC20Token token, uint contribution, uint expectedShares)
         public
         onlyNotMember
         noPendingJoin
     {
-        require(lockupPeriod >= minimumTerm, "Your lockup period is not long enough");
-
-        // Check that the arguments are formed correctly
-        require(contributions.length == tokens.length, "tokens and contributions length differ");
+        require(
+            lockupPeriod >= minimumTerm,
+            "Your lockup period is not long enough."
+        );
 
         // Store the request on the blockchain
         joinRequests[msg.sender] = JoinRequest(
             // solium-disable-next-line security/no-block-members
             now + lockupPeriod,
-            tokens,
-            contributions,
+            token,
+            contribution,
             expectedShares,
             true
         );
@@ -181,30 +198,27 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         // Check that they have approved us for the fee
         require(
             AkropolisToken.allowance(msg.sender, this) >= joiningFee,
-            "Joining fee not approved for fund"
+            "Joining fee not approved for fund."
         );
 
-        // Check that they have approved us for their initial contributions
-        for (uint i = 0; i < contributions.length; i++) {
-            ERC20Token token = tokens[i];
+        require(
+            approvedTokens.contains(token),
+            "Initial contribution is in non-approved token."
+        );
 
-            // ensure the token is approved
-            require(approvedTokens.contains(token), "Request includes non-approved token");
+        uint allowance = token.allowance(msg.sender, this);
+        uint requirement = contribution;
 
-            // if the token they're doing the initial contribution in is AKT, then we must subtract the 
-            // joining fee from the allowance dom was here
-            if (address(token) == address(AkropolisToken)) {
-                uint allowanceWithoutJoiningFee = token.allowance(msg.sender, this) - joiningFee;
-                require(
-                    allowanceWithoutJoiningFee >= contributions[i],
-                    "initial contribution allowance not equal to argument"
-                );
-            }
-            require(
-                token.allowance(msg.sender, this) >= contributions[i],
-                "initial contribution allowance not equal to argument"
-            );
+        // If the initial contribution token is AKT,
+        // then they must include the joining fee in their allowance.
+        if (address(token) == address(AkropolisToken)) {
+            requirement += joiningFee;
         }
+
+        require(
+            token.allowance(msg.sender, this) >= requirement,
+            "Insufficient allowance for nitial contribution."
+        );
 
         // Emit an event now that we've passed all the criteria for submitting a request to join
         emit newJoinRequest(msg.sender);
@@ -218,53 +232,64 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         JoinRequest memory request = joinRequests[user];
 
         require(
-            request.unlockTime != 0 && request.pending,
-            "Join request already completed or non-existant."
+            request.pending,
+            "Join request already completed or non-existent."
         );
 
-        // Take our fees + contribution
-        // This may fail if the joining fee rises, or if they have modified their allowance
-        require(AkropolisToken.transferFrom(user, this, joiningFee), "Joining fee deduction failed");
-
-        ERC20Token[] memory tokens = request.tokens;
-        uint[] memory contributions = request.contributions;
-
-        // Transfer their initial contribution to the fund
-        for (uint i = 0; i < contributions.length; i++) {
-            ERC20Token token = tokens[i];
-            // ensure the token is approved
-            require(approvedTokens.contains(token), "Request includes non-approved token");
-            require(
-                token.transferFrom(user, this, contributions[i]),
-                "Unable to withdraw contribution"
-            );
-        }
-
-        // Add them as a member
+        // Add them as a member; this must occur before calling _contribute,
+        // which enforces that the recipient is a member.
         members.add(user);
-        // Emit event
         emit newMemberAccepted(user);
-        // Change state to complete
-        joinRequests[user].pending = false;
         // Set their in the mapping
         memberTimeLock[user] = request.unlockTime;
+  
+        // Take our fees + contribution
+        // This may fail if the joining fee rises, or if they have modified their allowance
+        require(AkropolisToken.transferFrom(user, this, joiningFee), "Joining fee deduction failed.");
+
+        // Make the actual contribution.
+        _contribute(user, user,
+                    request.token, request.initialContribution,
+                    request.expectedShares);
+        
         // Give the user their requested shares in the fund
         _createShares(user, request.expectedShares);
+
+        // Complete the join request.
+        joinRequests[user].pending = false;
+
     }
 
+    function _contribute(address contributor, address recipient, ERC20Token token,
+                         uint quantity, uint expectedShares)
+        internal
+        onlyMember(recipient)
+        onlyApprovedToken(token)
+    {
+        require(
+            token.transferFrom(contributor, this, quantity),
+            "Unable to withdraw contribution."
+        );
+        contributions[recipient].push(Contribution(contributor, token, quantity));
+    }
 
     // U6 - Must make a contribution to a fund if already a member
-    function makeContribution()
+    function makeContribution(ERC20Token token, uint quantity, uint expectedShares)
         public
-        onlyMember
     {
-        unimplemented();
+        _contribute(msg.sender, msg.sender, token, quantity, expectedShares);
+    }
+
+    function makeContributionFor(address recipient, ERC20Token token, uint quantity, uint expectedShares)
+        public
+    {
+        _contribute(msg.sender, recipient, token, quantity, expectedShares);
     }
 
     // U18 - Withdraw from a fund if my timelock has expired
     function withdrawBenefits()
         public
-        onlyMember
+        onlyMember(msg.sender)
         timelockExpired
     {
         unimplemented();
@@ -306,21 +331,4 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     {
         unimplemented();
     }
-
-    function joinRequestsTokenContributionAtIndex(address user, uint index)
-        external
-        view
-        returns (address, uint)
-    {
-        return (joinRequests[user].tokens[index], joinRequests[user].contributions[index]);
-    }
-
-    function joinRequestContributionLength(address user)
-        external
-        view
-        returns (uint)
-    {
-        return joinRequests[user].contributions.length;
-    }
-
 }
