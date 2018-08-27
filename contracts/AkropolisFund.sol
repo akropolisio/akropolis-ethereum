@@ -20,12 +20,10 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     // Percentage of AUM over one year.
     // TODO: Add a flat rate as well. Maybe also performance fees.
     uint public managementFeePerYear;
-
-    // TODO: set this somewhere
-    uint public minimumTerm;
-
-    // TODO: let this have a setter method
+    
     uint public joiningFee;
+
+    uint public minimumTerm;
 
     // Tokens that this fund is approved to own.
     // TODO: Make this effectively public with view functions.
@@ -132,18 +130,18 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         NontransferableShare(_name, _symbol)
         public
     {
-        manager = msg.sender;
+        // Manager is null by default. A new one must be formally approved.
         board = _board;
         managementFeePerYear = _managementFeePerYear;
         minimumTerm = _minimumTerm;
         joiningFee = _joiningFee;
-        denominatingAsset = _denominatingAsset;
         AkropolisToken = _AkropolisToken;
 
         members.initialise();
         approvedTokens.initialise();
 
         // By default, the denominating asset is an approved investible token.
+        denominatingAsset = _denominatingAsset;
         approvedTokens.add(denominatingAsset);
     }
 
@@ -154,6 +152,66 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     {
         manager = newManager;
         return true;
+    }
+
+    function setBoard(Board newBoard)
+        external
+        onlyBoard
+        returns (bool)
+    {
+        board = newBoard;
+        return true;
+    }
+
+    function setManagementFee(uint newFee)
+        external
+        onlyBoard
+        returns (bool)
+    {
+        managementFeePerYear = newFee;
+        return true;
+    }
+
+    function setJoiningFee(uint newFee)
+        external
+        onlyBoard
+        returns (bool)
+    {
+        joiningFee = newFee;
+        return true;
+    }
+
+    function setMinimumTerm(uint newTerm)
+        external
+        onlyBoard
+        returns (bool)
+    {
+        minimumTerm = newTerm;
+        return true;
+    }
+
+    function _setDenominatingAsset(ERC20Token asset)
+        internal
+    {
+        approvedTokens.remove(denominatingAsset);
+        approvedTokens.add(asset);
+        denominatingAsset = asset;
+    }
+
+    function setDenominatingAsset(ERC20Token asset)
+        external
+        onlyBoard
+        returns (bool)
+    {
+        _setDenominatingAsset(asset);
+    }
+
+    function resetMemberTimeLock(address user)
+        external
+        onlyBoard
+        returns (bool)
+    {
+        memberTimeLock[user] = now;
     }
 
     function approveTokens(ERC20Token[] tokens)
