@@ -37,7 +37,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     IterableSet.Set members;
 
     // Each user has a time after which they can withdraw benefits. Can be modified by fund directors.
-    mapping(address => uint) public memberTimeLock;
+    mapping(address => uint) public timeLock;
 
     // Mapping of candidate members to their join request
     mapping(address => JoinRequest) public joinRequests;
@@ -89,8 +89,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     }
 
     modifier timelockExpired() {
-        // solium-disable-next-line security/no-block-members
-        require(now >= memberTimeLock[msg.sender], "Sender timelock has not yet expired.");
+        require(now >= timeLock[msg.sender], "Sender timelock has not yet expired.");
         _;
     }
 
@@ -204,12 +203,12 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         _setDenominatingAsset(asset);
     }
 
-    function resetMemberTimeLock(address user)
+    function resetTimeLock(address user)
         external
         onlyBoard
         returns (bool)
     {
-        memberTimeLock[user] = now;
+        timeLock[user] = now;
     }
 
     function approveTokens(ERC20Token[] tokens)
@@ -291,7 +290,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
 
         // Store the request on the blockchain
         joinRequests[msg.sender] = JoinRequest(
-            // solium-disable-next-line security/no-block-members
             now + lockupPeriod,
             token,
             contribution,
@@ -358,7 +356,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         members.add(user);
         emit newMemberAccepted(user);
         // Set their in the mapping
-        memberTimeLock[user] = request.unlockTime;
+        timeLock[user] = request.unlockTime;
   
         // Take our fees + contribution
         // This may fail if the joining fee rises, or if they have modified their allowance
