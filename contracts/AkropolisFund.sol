@@ -1,5 +1,6 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
+pragma experimental ABIEncoderV2;
 
 import "./Board.sol";
 import "./NontransferableShare.sol";
@@ -60,6 +61,11 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     struct Contribution {
         address contributor;
         address token;
+        uint quantity;
+    }
+
+    struct TokenBalance {
+        ERC20Token Token;
         uint quantity;
     }
 
@@ -417,19 +423,27 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         unimplemented();
     }
 
-    function balanceOfToken()
+    function balanceOfToken(ERC20Token token)
         public
         view
         returns (uint)
     {
-        unimplemented();
+        return token.balanceOf(this);
     }
 
-    function fundBalances()
+    function approvedBalances()
         public
         view
-        returns (uint[])
+        returns (TokenBalance[])
     {
-        unimplemented();
+        uint numTokens = approvedTokens.size();
+        TokenBalance[] memory balances = new TokenBalance[](numTokens);
+
+        for (uint i = 0; i < numTokens; i++) {
+            ERC20Token token = ERC20Token(approvedTokens.get(i));
+            balances[i] = TokenBalance(token, token.balanceOf(this));
+        }
+
+        return balances;
     }
 }
