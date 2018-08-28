@@ -259,7 +259,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         view
         returns (bool)
     {
-        return members.contains(member);
+        return members.contains(user);
     }
 
     function numMembers()
