@@ -220,7 +220,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         }
     }
 
-    function removeTokens(ERC20Token[] tokens)
+    function disapproveTokens(ERC20Token[] tokens)
       external
       onlyBoard
     {
@@ -326,7 +326,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         emit newJoinRequest(msg.sender);
     }
 
-    function disapproveJoinRequest(address user)
+    function denyJoinRequest(address user)
         public
         onlyManager
     {
