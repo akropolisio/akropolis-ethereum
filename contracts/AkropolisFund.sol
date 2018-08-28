@@ -328,7 +328,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         emit newJoinRequest(msg.sender);
     }
 
-    function DisapproveJoinRequest(address user)
+    function disapproveJoinRequest(address user)
         public
         onlyManager
     {
