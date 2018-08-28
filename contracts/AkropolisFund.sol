@@ -26,7 +26,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     uint public minimumTerm;
 
     // Tokens that this fund is approved to own.
-    // TODO: Make this effectively public with view functions.
     IterableSet.Set approvedTokens;
 
     // Token in which benefits will be paid.
@@ -35,7 +34,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     // Token in which joining fee is paid.
     ERC20Token public AkropolisToken;
     
-    // TODO: Make this effectively public with view functions.
     IterableSet.Set members;
 
     // Each user has a time after which they can withdraw benefits. Can be modified by fund directors.
@@ -230,6 +228,54 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         for (uint i; i < tokens.length; i++) {
             approvedTokens.remove(address(tokens[i]));
         }
+    }
+
+    function isApprovedToken(address token) 
+        external
+        view
+        returns (bool)
+    {
+        return approvedTokens.contains(token);
+    }
+
+    function numApprovedTokens()
+        external
+        view
+        returns (uint)
+    {
+        return approvedTokens.size();
+    }
+
+    function approvedToken(uint i)
+        external
+        view
+        returns (address)
+    {
+        return approvedTokens.get(i);
+    }
+
+    function isMember(address user)
+        external
+        view
+        returns (bool)
+    {
+        return members.contains(member);
+    }
+
+    function numMembers()
+        external
+        view
+        returns (uint)
+    {
+        return members.size();
+    }
+
+    function member(uint i)
+        external
+        view
+        returns (address)
+    {
+        return members.get(i);
     }
 
     // U4 - Join a new fund
