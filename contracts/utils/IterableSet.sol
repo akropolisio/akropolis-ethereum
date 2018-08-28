@@ -9,7 +9,7 @@ library IterableSet {
         address[] items;
     }
 
-    modifier mustBeInitialised(Set storage s) {
+    modifier assertInitialised(Set storage s) {
         require(s.isInitialised(), "Set is uninitialised.");
         _;
     }
@@ -32,7 +32,7 @@ library IterableSet {
     function size(Set storage s)
         internal
         view
-        mustBeInitialised(s)
+        assertInitialised(s)
         returns (uint)
     {
         return s.items.length - 1;
@@ -41,7 +41,7 @@ library IterableSet {
     function contains(Set storage s, address a)
         internal
         view
-        mustBeInitialised(s)
+        assertInitialised(s)
         returns (bool)
     {
         return s.indices[a] != 0;
@@ -50,16 +50,17 @@ library IterableSet {
     function get(Set storage s, uint i)
         internal
         view
-        mustBeInitialised(s)
+        assertInitialised(s)
         returns (address)
     {
-        require(i < s.items.length - 1, "Set index out of range.");
-        return s.items[i + 1];
+        uint index = i + 1;
+        require(index < s.items.length, "Set index out of range.");
+        return s.items[index];
     }
 
     function add(Set storage s, address a)
         internal
-        mustBeInitialised(s)
+        assertInitialised(s)
         returns (bool)
     {
         if (s.contains(a)) {
@@ -72,19 +73,21 @@ library IterableSet {
 
     function remove(Set storage s, address a)
         internal
-        mustBeInitialised(s)
+        assertInitialised(s)
         returns (bool)
     {
         if (s.contains(a)) {
-            // Find the index of `k` and swap it with the last item, remove last item
             uint newLength = s.items.length - 1;
             address swappee = s.items[newLength];
             uint oldIndex = s.indices[a];
+
+            // Overwrite the removed item with the last one, then shrink the list.
             s.items[oldIndex] = swappee;
             s.indices[swappee] = oldIndex;
             delete s.items[newLength];
             s.items.length--;
             delete s.indices[a];
+
             return true;
         }
         return false;
@@ -92,15 +95,17 @@ library IterableSet {
 
     function pop(Set storage s)
         internal
-        mustBeInitialised(s)
+        assertInitialised(s)
         returns (address)
     {   
         uint len = s.items.length - 1;
         require(len > 0, "Cannot pop from empty Set.");
         address item = s.items[len];
+
         delete s.items[len];
         delete s.indices[item];
         s.items.length--;
+
         return item;
     }
 }
