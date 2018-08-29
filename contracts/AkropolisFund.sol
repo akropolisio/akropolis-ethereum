@@ -45,7 +45,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // mapping of candidate members to their historic contributions.
     mapping(address => Contribution[]) public contributions;
 
-    Log[] public logs;
+    Log[] public managementLog;
 
     //
     // structs
@@ -322,6 +322,14 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return Board(owner);
     }
 
+    function managementLogLength()
+        public
+        view
+        returns (uint)
+    {
+        return managementLog.length;
+    }
+
     // U4 - Join a new fund
     function joinFund(uint lockupPeriod, ERC20Token token, uint contribution, uint expectedShares)
         public
@@ -460,6 +468,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         unimplemented();
     }
 
+    // TODO: Make these manager functions two-stage so that, for example, large
+    // transfers might require board approval before they go through.
     function withdraw(ERC20Token token, address destination, uint quantity, string annotation)
         external
         onlyManager
@@ -468,7 +478,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // TODO: check the Governor if this withdrawal is permitted.
         require(bytes(annotation).length > 0, "No annotation provided.");
         uint result = token.transfer(destination, quantity) ? 0 : 1;
-        logs.push(Log(LogType.Withdrawal, token, quantity, destination, result, annotation));
+        managementLog.push(Log(LogType.Withdrawal, token, quantity, destination, result, annotation));
         return result;
     }
 
@@ -480,20 +490,20 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // TODO: check the Governor if this approval is permitted.
         require(bytes(annotation).length > 0, "No annotation provided.");
         uint result = token.approve(spender, quantity) ? 0 : 1;
-        logs.push(Log(LogType.Approval, token, quantity, spender, result, annotation));
+        managementLog.push(Log(LogType.Approval, token, quantity, spender, result, annotation));
         return result;
     }
 
-    function deposit(ERC20Token token, uint quantity, address source, string annotation)
+    function deposit(ERC20Token token, address depositor, uint quantity, string annotation)
         external
         onlyManager
         returns (uint)
     {
         // TODO: check the Governor if this deposit is permitted.
         require(bytes(annotation).length > 0, "No annotation provided.");
-        require(token.allowance(this, source) >= quantity, "Insufficient allowance.");
-        uint result = token.transferFrom(source, this, quantity) ? 0 : 1;
-        logs.push(Log(LogType.Deposit, token, quantity, source, result, annotation));
+        require(token.allowance(depositor, this) >= quantity, "Insufficient depositor allowance.");
+        uint result = token.transferFrom(depositor, this, quantity) ? 0 : 1;
+        managementLog.push(Log(LogType.Deposit, token, quantity, depositor, result, annotation));
         return result;
     }
 
