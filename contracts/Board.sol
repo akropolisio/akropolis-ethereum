@@ -1,45 +1,10 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
-// TODO: Add licence header and file description info.
-// TODO: Natural specification.
 
-/***
-DEV:
-
-User stories to be implemented for the board of directors:
-
-MUST HAVE:
-
-D1: Create a board of directors contract; 
-    * Initial set of directors is configurable.
-    * Deployment charges AKT fees.
-
-D2: Initiate a new motion. Motions should contain:
-    * Type
-    * Expiry Time
-    * Vote tallies
-    * Extra data
-
-D3: Vote to change the fund manager.
-
-
-SHOULD HAVE:
-
-D4: Vote to add directors
-D5: Vote to remove directors
-D6: Vote to set fee rate
-
-
-COULD HAVE:
-
-D7: Nullify an investor's time lock (lower quorum requirement?)
-D8: Add approved investible token
-D9: Remove approved investible token
-
-
+/*
 TODO: 
-Better process for votes, so that you can vote even if a vote has already passed, but not when it has executed.
-
+Better process for votes, so that you can vote even if a vote has already passed,
+but not when it has executed.
 ***/
 
 import "./utils/IterableSet.sol";
