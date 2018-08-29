@@ -3,6 +3,7 @@ pragma experimental "v0.5.0";
 
 import "./Board.sol";
 import "./NontransferableShare.sol";
+import "./Registry.sol";
 import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
@@ -264,6 +265,25 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         memberTimeLock[user] = request.unlockTime;
         // Give the user their requested shares in the fund
         _createShares(user, request.expectedShares);
+    }
+
+    function registerSelf(Registry registry, uint fee)
+        external
+        onlyManager
+        returns (bool)
+    {
+        // Approve Akropolis Token 
+        require(
+            AkropolisToken.approve(address(registry), fee),
+            "Unable to approve registry for fee"
+        );
+        // Add the fund to the registry!
+        require(
+            registry.addFund(),
+            "Failed to add fund to registry"
+        );
+        // If the above didn't revert, then it passed!
+        return true;
     }
 
 
