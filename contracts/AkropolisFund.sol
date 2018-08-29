@@ -1,6 +1,5 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
-pragma experimental ABIEncoderV2;
 
 import "./Board.sol";
 import "./NontransferableShare.sol";
@@ -62,11 +61,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         address contributor;
         address token;
         uint quantity;
-    }
-
-    struct TokenBalance {
-        ERC20Token Token;
-        uint quantity;
+        uint timestamp;
     }
 
     //
@@ -258,6 +253,14 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     {
         return approvedTokens.get(i);
     }
+    
+    function getApprovedTokens()
+        external
+        view
+        returns (address[])
+    {
+        return approvedTokens.itemList();
+    }
 
     function isMember(address user)
         external
@@ -314,7 +317,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
             "Initial contribution is in non-approved token."
         );
 
-        uint allowance = token.allowance(msg.sender, this);
         uint requirement = contribution;
 
         // If the initial contribution token is AKT,
@@ -373,9 +375,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
                     request.token, request.initialContribution,
                     request.expectedShares);
         
-        // Give the user their requested shares in the fund
-        _createShares(user, request.expectedShares);
-
         // Complete the join request.
         joinRequests[user].pending = false;
 
@@ -391,7 +390,8 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
             token.transferFrom(contributor, this, quantity),
             "Unable to withdraw contribution."
         );
-        contributions[recipient].push(Contribution(contributor, token, quantity));
+        contributions[recipient].push(Contribution(contributor, token, quantity, now));
+        _createShares(recipient, expectedShares);
     }
 
     // U6 - Must make a contribution to a fund if already a member
@@ -430,20 +430,20 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     {
         return token.balanceOf(this);
     }
-
+    
     function approvedBalances()
         public
         view
-        returns (TokenBalance[])
+        returns (address[] tokens, uint[] balances)
     {
         uint numTokens = approvedTokens.size();
-        TokenBalance[] memory balances = new TokenBalance[](numTokens);
+        uint[] memory balances = new uint[](numTokens);
 
         for (uint i = 0; i < numTokens; i++) {
             ERC20Token token = ERC20Token(approvedTokens.get(i));
-            balances[i] = TokenBalance(token, token.balanceOf(this));
+            balances[i] = token.balanceOf(this);
         }
 
-        return balances;
+        return (approvedTokens.itemList(), balances);
     }
 }

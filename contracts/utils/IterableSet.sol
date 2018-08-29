@@ -58,6 +58,19 @@ library IterableSet {
         return s.items[index];
     }
 
+    function itemList(Set storage s)
+        internal
+        view
+        assertInitialised(s)
+        returns (address[])
+    {
+        address[] memory itemlist = new address[](s.items.length - 1);
+        for (uint i = 1; i < s.items.length; i++) {
+            itemlist[i-1] = s.items[i];
+        }
+        return itemlist;
+    }
+
     function add(Set storage s, address a)
         internal
         assertInitialised(s)
