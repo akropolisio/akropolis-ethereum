@@ -25,6 +25,8 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
 
     uint public minimumTerm;
 
+    bytes32 public descriptionHash;
+
     // Tokens that this fund is approved to own.
     IterableSet.Set approvedTokens;
 
@@ -123,7 +125,8 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         ERC20Token _denominatingAsset,
         ERC20Token _AkropolisToken,
         string _name,
-        string _symbol
+        string _symbol,
+        bytes32 _descriptionHash
     )
         NontransferableShare(_name, _symbol)
         public
@@ -134,6 +137,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         minimumTerm = _minimumTerm;
         joiningFee = _joiningFee;
         AkropolisToken = _AkropolisToken;
+        descriptionHash = _descriptionHash;
 
         members.initialise();
         approvedTokens.initialise();
@@ -202,6 +206,15 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         returns (bool)
     {
         _setDenominatingAsset(asset);
+    }
+
+    function setDescriptionHash(bytes32 newHash)
+        external
+        onlyBoard
+        returns (bool)
+    {
+        descriptionHash = newHash;
+        return true;
     }
 
     function resetTimeLock(address user)
