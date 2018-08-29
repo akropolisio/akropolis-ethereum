@@ -378,7 +378,9 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         // Complete the join request.
         joinRequests[user].pending = false;
     }
-
+    
+    // TODO: This should go through a proper request system instead of just issuing
+    // the requested shares unchallenged.
     function _contribute(address contributor, address recipient, ERC20Token token,
                          uint quantity, uint expectedShares)
         internal
