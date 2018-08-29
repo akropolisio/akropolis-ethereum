@@ -7,15 +7,13 @@ import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
 import "./utils/Unimplemented.sol";
+import "./utils/Owned.sol";
 
-contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
+contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemented {
     using IterableSet for IterableSet.Set;
 
     // The pension fund manger
     address public manager;
-
-    // The board contract, when the board wants to interact with the fund
-    Board public board;
 
     // Percentage of AUM over one year.
     // TODO: Add a flat rate as well. Maybe also performance fees.
@@ -82,7 +80,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     //
 
     modifier onlyBoard() {
-        require(msg.sender == address(board), "Sender is not the Board of Directors.");
+        require(msg.sender == address(board()), "Sender is not the Board of Directors.");
         _;
     }
 
@@ -128,11 +126,11 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         string _symbol,
         bytes32 _descriptionHash
     )
+        Owned(_board)
         NontransferableShare(_name, _symbol)
         public
     {
         // Manager is null by default. A new one must be formally approved.
-        board = _board;
         managementFeePerYear = _managementFeePerYear;
         minimumTerm = _minimumTerm;
         joiningFee = _joiningFee;
@@ -156,12 +154,12 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         return true;
     }
 
-    function setBoard(Board newBoard)
+    function nominateNewBoard(Board newBoard)
         external
         onlyBoard
         returns (bool)
     {
-        board = newBoard;
+        nominateNewOwner(address(newBoard));
         return true;
     }
 
@@ -299,6 +297,14 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         return members.get(i);
     }
 
+    function board()
+        public
+        view
+        returns (Board)
+    {
+        return Board(owner);
+    }
+
     // U4 - Join a new fund
     function joinFund(uint lockupPeriod, ERC20Token token, uint contribution, uint expectedShares)
         public
@@ -432,6 +438,20 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
 
     function withdrawFees()
         public
+        onlyManager
+    {
+        unimplemented();
+    }
+
+    function withdraw(ERC20Token token, uint quantity, address destination)
+        external
+        onlyManager
+    {
+        unimplemented();
+    }
+
+    function deposit(ERC20Token token, uint quantity, address source)
+        external
         onlyManager
     {
         unimplemented();
