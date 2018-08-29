@@ -45,6 +45,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // mapping of candidate members to their historic contributions.
     mapping(address => Contribution[]) public contributions;
 
+    Log[] public logs;
+
     //
     // structs
     //
@@ -62,6 +64,21 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         address token;
         uint quantity;
         uint timestamp;
+    }
+
+    enum LogType {
+        Withdrawal,
+        Deposit,
+        Approval
+    }
+
+    struct Log {
+        LogType logType;
+        ERC20Token token;
+        uint quantity;
+        address account;
+        uint code;
+        string annotation;
     }
 
     //
@@ -443,18 +460,41 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         unimplemented();
     }
 
-    function withdraw(ERC20Token token, uint quantity, address destination)
+    function withdraw(ERC20Token token, address destination, uint quantity, string annotation)
         external
         onlyManager
+        returns (uint)
     {
-        unimplemented();
+        // TODO: check the Governor if this withdrawal is permitted.
+        require(bytes(annotation).length > 0, "No annotation provided.");
+        uint result = token.transfer(destination, quantity) ? 0 : 1;
+        logs.push(Log(LogType.Withdrawal, token, quantity, destination, result, annotation));
+        return result;
     }
 
-    function deposit(ERC20Token token, uint quantity, address source)
+    function approveWithdrawal(ERC20Token token, address spender, uint quantity, string annotation)
         external
         onlyManager
+        returns (uint)
     {
-        unimplemented();
+        // TODO: check the Governor if this approval is permitted.
+        require(bytes(annotation).length > 0, "No annotation provided.");
+        uint result = token.approve(spender, quantity) ? 0 : 1;
+        logs.push(Log(LogType.Approval, token, quantity, spender, result, annotation));
+        return result;
+    }
+
+    function deposit(ERC20Token token, uint quantity, address source, string annotation)
+        external
+        onlyManager
+        returns (uint)
+    {
+        // TODO: check the Governor if this deposit is permitted.
+        require(bytes(annotation).length > 0, "No annotation provided.");
+        require(token.allowance(this, source) >= quantity, "Insufficient allowance.");
+        uint result = token.transferFrom(source, this, quantity) ? 0 : 1;
+        logs.push(Log(LogType.Deposit, token, quantity, source, result, annotation));
+        return result;
     }
 
     function balanceOfToken(ERC20Token token)
