@@ -102,7 +102,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     }
 
     modifier onlyManager() {
-        require(msg.sender == manager, "Sender is not the manager.");
+        require(msg.sender == manager, "Sender is not the fund manager.");
         _;
     }
 
@@ -371,7 +371,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
         require(
             token.allowance(msg.sender, this) >= requirement,
-            "Insufficient allowance for nitial contribution."
+            "Insufficient allowance for initial contribution."
         );
 
         // Emit an event now that we've passed all the criteria for submitting a request to join
