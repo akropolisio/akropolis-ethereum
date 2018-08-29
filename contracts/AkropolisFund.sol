@@ -377,7 +377,6 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         
         // Complete the join request.
         joinRequests[user].pending = false;
-
     }
 
     function _contribute(address contributor, address recipient, ERC20Token token,
