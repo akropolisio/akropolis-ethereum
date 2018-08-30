@@ -27,14 +27,6 @@ contract PublicBoard is Board {
         return _getActiveMotion(motionID).id;
     }
 
-    function isValidMotionType(MotionType motionType)
-        pure
-        public
-        returns (bool)
-    {
-        return _isValidMotionType(motionType);
-    }
-
     function executeSetManager(bytes data)
         public
         returns (bool)
