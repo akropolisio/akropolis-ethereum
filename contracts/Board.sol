@@ -63,7 +63,6 @@ contract Board is BytesHandler, Unimplemented {
         string description;
         bytes data;
         mapping(address => VoteType) vote; // Default value is "Absent"
-        // TODO: Add a test verifying the default value to enforce the ordering of VoteType enum.
     }
 
     modifier onlyDirectors() {
@@ -75,7 +74,6 @@ contract Board is BytesHandler, Unimplemented {
     Motion[] public motions;
     PensionFund public fund;
 
-    // TODO: Should charge AKT tokens.
     constructor (address[] initialDirectors)
         public
     {
@@ -160,27 +158,12 @@ contract Board is BytesHandler, Unimplemented {
         return motion;
     }
 
-    function _isValidMotionType(MotionType motionType)
-        pure
-        internal
-        returns (bool)
-    {
-        return motionType == MotionType.SetManager ||
-               motionType == MotionType.AddDirectors ||
-               motionType == MotionType.RemoveDirectors ||
-               motionType == MotionType.SetFee ||
-               motionType == MotionType.SetTimeLock ||
-               motionType == MotionType.ApproveTokens ||
-               motionType == MotionType.DisapproveTokens;
-    }
-
     /// @return ID of the initiated motion.
     function initiateMotion(MotionType motionType, uint duration, string description, bytes data)
         public
         onlyDirectors
         returns (uint)
     {
-        require(_isValidMotionType(motionType), "Invalid motion type.");
         require(data.length > 0, "Data must not be empty.");
         uint id = motions.length;
 
@@ -294,7 +277,7 @@ contract Board is BytesHandler, Unimplemented {
         motion.status = MotionStatus.Cancelled;
     }
 
-    function motionShouldExpire(uint motionID) 
+    function motionPastExpiry(uint motionID) 
         public
         view
         returns (bool)
@@ -308,7 +291,7 @@ contract Board is BytesHandler, Unimplemented {
         onlyDirectors
     {
         Motion storage motion = _getActiveMotion(motionID);
-        require(motionShouldExpire(motionID), "Motion has not expired.");
+        require(motionPastExpiry(motionID), "Motion has not expired.");
         motion.status = MotionStatus.Expired;
     }
 
@@ -352,7 +335,7 @@ contract Board is BytesHandler, Unimplemented {
     {
         Motion storage motion = _getActiveMotion(motionID);
 
-        if (motionShouldExpire(motionID)) {
+        if (motionPastExpiry(motionID)) {
             motion.status = MotionStatus.Expired;
             return true;
         }
@@ -383,7 +366,7 @@ contract Board is BytesHandler, Unimplemented {
     {
         Motion storage motion = _getActiveMotion(motionID);
 
-        if (motionShouldExpire(motionID)) {
+        if (motionPastExpiry(motionID)) {
             motion.status = MotionStatus.Expired;
             return true;
         }
@@ -414,7 +397,7 @@ contract Board is BytesHandler, Unimplemented {
     {
         Motion storage motion = _getActiveMotion(motionID);
 
-        if (motionShouldExpire(motionID)) {
+        if (motionPastExpiry(motionID)) {
             motion.status = MotionStatus.Expired;
             return true;
         }
