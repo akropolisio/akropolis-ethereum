@@ -521,13 +521,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         returns (address[] tokens, uint[] balances)
     {
         uint numTokens = approvedTokens.size();
-        uint[] memory balances = new uint[](numTokens);
+        uint[] memory approvedBalances = new uint[](numTokens);
 
         for (uint i = 0; i < numTokens; i++) {
             ERC20Token token = ERC20Token(approvedTokens.get(i));
-            balances[i] = token.balanceOf(this);
+            approvedBalances[i] = token.balanceOf(this);
         }
 
-        return (approvedTokens.itemList(), balances);
+        return (approvedTokens.itemList(), approvedBalances);
     }
 }
