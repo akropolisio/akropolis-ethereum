@@ -45,7 +45,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // mapping of candidate members to their historic contributions.
     mapping(address => Contribution[]) public contributions;
 
-    Log[] public managementLog;
+    LogEntry[] public managementLog;
 
     //
     // structs
@@ -72,7 +72,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         Approval
     }
 
-    struct Log {
+    struct LogEntry {
         LogType logType;
         ERC20Token token;
         uint quantity;
@@ -478,7 +478,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // TODO: check the Governor if this withdrawal is permitted.
         require(bytes(annotation).length > 0, "No annotation provided.");
         uint result = token.transfer(destination, quantity) ? 0 : 1;
-        managementLog.push(Log(LogType.Withdrawal, token, quantity, destination, result, annotation));
+        managementLog.push(LogEntry(LogType.Withdrawal, token, quantity, destination, result, annotation));
         return result;
     }
 
@@ -490,7 +490,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // TODO: check the Governor if this approval is permitted.
         require(bytes(annotation).length > 0, "No annotation provided.");
         uint result = token.approve(spender, quantity) ? 0 : 1;
-        managementLog.push(Log(LogType.Approval, token, quantity, spender, result, annotation));
+        managementLog.push(LogEntry(LogType.Approval, token, quantity, spender, result, annotation));
         return result;
     }
 
@@ -503,7 +503,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         require(bytes(annotation).length > 0, "No annotation provided.");
         require(token.allowance(depositor, this) >= quantity, "Insufficient depositor allowance.");
         uint result = token.transferFrom(depositor, this, quantity) ? 0 : 1;
-        managementLog.push(Log(LogType.Deposit, token, quantity, depositor, result, annotation));
+        managementLog.push(LogEntry(LogType.Deposit, token, quantity, depositor, result, annotation));
         return result;
     }
 
