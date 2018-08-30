@@ -10,12 +10,13 @@ but not when it has executed.
 import "./utils/IterableSet.sol";
 import "./utils/BytesHandler.sol";
 import "./utils/Unimplemented.sol";
-import "./interfaces/PensionFund.sol";
+import "./AkropolisFund.sol";
 
 contract Board is BytesHandler, Unimplemented {
     using IterableSet for IterableSet.Set;
 
     enum MotionType {
+        SetFund,
         SetManager,
         AddDirectors,
         RemoveDirectors,
@@ -72,7 +73,7 @@ contract Board is BytesHandler, Unimplemented {
 
     IterableSet.Set directors;
     Motion[] public motions;
-    PensionFund public fund;
+    AkropolisFund public fund;
 
     constructor (address[] initialDirectors)
         public
@@ -158,6 +159,27 @@ contract Board is BytesHandler, Unimplemented {
         return motion;
     }
 
+    function _isVotable(MotionStatus status) 
+        internal
+        pure
+        returns (bool)
+    {
+        return status == MotionStatus.Active ||
+               status == MotionStatus.Failed ||
+               status == MotionStatus.Passed;
+    }
+
+    function _getVotableMotion(uint motionID)
+        internal
+        view
+        returns (Motion storage)
+    {
+        Motion storage motion = _getMotion(motionID);
+        MotionStatus status = motion.status;
+        require(_isVotable(status), "Motion cannot be voted upon.");
+        return motion;
+    }
+
     /// @return ID of the initiated motion.
     function initiateMotion(MotionType motionType, uint duration, string description, bytes data)
         public
@@ -178,6 +200,15 @@ contract Board is BytesHandler, Unimplemented {
             data));
 
         return id;
+    }
+
+
+    function _executeSetFund(bytes data)
+        internal
+        returns (bool)
+    {
+        fund = AkropolisFund(_extractAddress(data, 0));
+        return true;
     }
 
     function _executeSetManager(bytes data)
@@ -234,13 +265,16 @@ contract Board is BytesHandler, Unimplemented {
         onlyDirectors
         returns (bool)
     {
-        Motion storage motion = _getActiveMotion(motionID);
+        Motion storage motion = _getMotion(motionID);
+        require(motion.status == MotionStatus.Passed, "Motions must pass to be executed.");
 
         bytes storage data = motion.data;
         MotionType motionType = motion.motionType;
         bool result;
 
-        if (motionType == MotionType.SetManager) {
+        if (motionType == MotionType.SetFund) {
+            result = _executeSetFund(data);
+        } else if (motionType == MotionType.SetManager) {
             result = _executeSetManager(data);
         } else if (motionType == MotionType.AddDirectors) {
             result = _executeAddDirectors(data);
@@ -290,7 +324,7 @@ contract Board is BytesHandler, Unimplemented {
         public
         onlyDirectors
     {
-        Motion storage motion = _getActiveMotion(motionID);
+        Motion storage motion = _getVotableMotion(motionID);
         require(motionPastExpiry(motionID), "Motion has not expired.");
         motion.status = MotionStatus.Expired;
     }
@@ -333,7 +367,7 @@ contract Board is BytesHandler, Unimplemented {
         onlyDirectors
         returns (bool)
     {
-        Motion storage motion = _getActiveMotion(motionID);
+        Motion storage motion = _getVotableMotion(motionID);
 
         if (motionPastExpiry(motionID)) {
             motion.status = MotionStatus.Expired;
@@ -364,7 +398,7 @@ contract Board is BytesHandler, Unimplemented {
         onlyDirectors
         returns (bool)
     {
-        Motion storage motion = _getActiveMotion(motionID);
+        Motion storage motion = _getVotableMotion(motionID);
 
         if (motionPastExpiry(motionID)) {
             motion.status = MotionStatus.Expired;
@@ -395,7 +429,7 @@ contract Board is BytesHandler, Unimplemented {
         onlyDirectors
         returns (bool)
     {
-        Motion storage motion = _getActiveMotion(motionID);
+        Motion storage motion = _getVotableMotion(motionID);
 
         if (motionPastExpiry(motionID)) {
             motion.status = MotionStatus.Expired;
