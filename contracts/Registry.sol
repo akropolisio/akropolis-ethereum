@@ -3,9 +3,9 @@ pragma experimental "v0.5.0";
 
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
-import "./utils/Ownable.sol";
+import "./utils/Owned.sol";
 
-contract Registry is Ownable {
+contract Registry is Owned {
     using IterableSet for IterableSet.Set;
 
     // This will typically be the Akropolis Token
@@ -13,9 +13,6 @@ contract Registry is Ownable {
 
     // The fee cost to join this registry
     uint public joiningFee;
-
-    // Owner of the registry
-    address public owner;
 
     // Iterable set of funds
     IterableSet.Set Funds;
@@ -27,7 +24,7 @@ contract Registry is Ownable {
     event RemovedFund(address indexed fund);
 
     constructor(ERC20Token _feeToken, uint _fee)
-        Ownable()
+        Owned(msg.sender)
         public 
     {
         feeToken = _feeToken;
@@ -47,6 +44,8 @@ contract Registry is Ownable {
         );
         // Ensure the fund isn't already listed here
         require(!Funds.contains(msg.sender), "Fund already registered");
+        // Add the fund to the set
+        Funds.add(msg.sender);
         // Emit an event for successfully adding a new fund
         emit NewFund(msg.sender);
         // Return true if the above didn't revert
@@ -58,6 +57,7 @@ contract Registry is Ownable {
     {
         // Ensure the fund is listed here
         require(Funds.contains(msg.sender), "Fund not registered");
+        Funds.remove(msg.sender);
         emit RemovedFund(msg.sender);
     }
 
