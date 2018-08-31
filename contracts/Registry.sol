@@ -1,6 +1,7 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
+import "./AkropolisFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
 import "./utils/Owned.sol";
@@ -18,10 +19,12 @@ contract Registry is Owned {
     IterableSet.Set Funds;
 
     // List the funds a user is in
-    mapping(address => address[]) public userToFund;
+    mapping(address => AkropolisFund[]) public userToFunds;
 
-    event NewFund(address indexed fund);
-    event RemovedFund(address indexed fund);
+    event NewFund(AkropolisFund indexed fund);
+    event RemovedFund(AkropolisFund indexed fund);
+    event NewFee(uint indexed newFee);
+    event NewFeeToken(ERC20Token indexed newFeeToken);
 
     constructor(ERC20Token _feeToken, uint _fee)
         Owned(msg.sender)
@@ -30,6 +33,24 @@ contract Registry is Owned {
         feeToken = _feeToken;
         joiningFee = _fee;
         Funds.initialise();
+        emit NewFee(joiningFee);
+        emit NewFeeToken(feeToken);
+    }
+
+    function setJoiningFee(uint _joiningFee)
+        external
+        onlyOwner
+    {
+        joiningFee = _joiningFee;
+        emit NewFee(joiningFee);
+    }
+
+    function setFeeToken(ERC20Token _feeToken)
+        external
+        onlyOwner
+    {
+        feeToken = _feeToken;
+        emit NewFeeToken(feeToken);
     }
 
     function addFund()
@@ -47,7 +68,7 @@ contract Registry is Owned {
         // Add the fund to the set
         Funds.add(msg.sender);
         // Emit an event for successfully adding a new fund
-        emit NewFund(msg.sender);
+        emit NewFund(AkropolisFund(msg.sender));
         // Return true if the above didn't revert
         return true;
     }
@@ -58,7 +79,7 @@ contract Registry is Owned {
         // Ensure the fund is listed here
         require(Funds.contains(msg.sender), "Fund not registered");
         Funds.remove(msg.sender);
-        emit RemovedFund(msg.sender);
+        emit RemovedFund(AkropolisFund(msg.sender));
     }
 
     function transferFees(address to, uint quantity)
@@ -70,12 +91,14 @@ contract Registry is Owned {
         return feeToken.transfer(to, quantity);
     }
 
-    function addUser(address fund)
+    function addUser(AkropolisFund fund)
         external
     {
         // The user adds itself to the registry
         require(Funds.contains(fund), "Fund is not in registry");
-        userToFund[msg.sender].push(fund);
+        // require the user to be in the fund
+        require(fund.isMember(msg.sender), "Sender is not a member of fund");
+        userToFunds[msg.sender].push(fund);
     }
 
     function fundSize()
