@@ -202,12 +202,54 @@ contract Board is BytesHandler, Unimplemented {
         return id;
     }
 
+    function executeMotion(uint motionID)
+        public
+        onlyDirectors
+        returns (bool)
+    {
+        Motion storage motion = _getMotion(motionID);
+        require(motion.status == MotionStatus.Passed, "Motions must pass to be executed.");
+
+        bytes storage data = motion.data;
+        MotionType motionType = motion.motionType;
+        bool result;
+
+        if (motionType == MotionType.SetFund) {
+            result = _executeSetFund(data);
+        } else if (motionType == MotionType.SetManager) {
+            result = _executeSetManager(data);
+        } else if (motionType == MotionType.AddDirectors) {
+            result = _executeAddDirectors(data);
+        } else if (motionType == MotionType.RemoveDirectors) {
+            result = _executeRemoveDirectors(data);
+        } else if (motionType == MotionType.SetFee) {
+            result = _executeSetFee(data);
+        } else if (motionType == MotionType.SetTimeLock) {
+            result = _executeSetTimeLock(data);
+        } else if (motionType == MotionType.ApproveTokens) {
+            result = _executeApproveTokens(data);
+        } else if (motionType == MotionType.DisapproveTokens) {
+            result = _executeDisapproveTokens(data);
+        } else {
+            revert("Unsupported motion type (this should be impossible).");
+        }
+
+        if (result) {
+            motion.status = MotionStatus.Executed;
+        } else {
+            motion.status = MotionStatus.ExecutionFailed;
+        }
+
+        return result;
+    }
 
     function _executeSetFund(bytes data)
         internal
         returns (bool)
     {
-        fund = AkropolisFund(_extractAddress(data, 0));
+        address fundAddress = _extractAddress(data, 0);
+        fund = AkropolisFund(fundAddress);
+        emit SetFund(fundAddress);
         return true;
     }
 
@@ -258,47 +300,6 @@ contract Board is BytesHandler, Unimplemented {
         returns (bool)
     {
         unimplemented();
-    }
-
-    function executeMotion(uint motionID)
-        public
-        onlyDirectors
-        returns (bool)
-    {
-        Motion storage motion = _getMotion(motionID);
-        require(motion.status == MotionStatus.Passed, "Motions must pass to be executed.");
-
-        bytes storage data = motion.data;
-        MotionType motionType = motion.motionType;
-        bool result;
-
-        if (motionType == MotionType.SetFund) {
-            result = _executeSetFund(data);
-        } else if (motionType == MotionType.SetManager) {
-            result = _executeSetManager(data);
-        } else if (motionType == MotionType.AddDirectors) {
-            result = _executeAddDirectors(data);
-        } else if (motionType == MotionType.RemoveDirectors) {
-            result = _executeRemoveDirectors(data);
-        } else if (motionType == MotionType.SetFee) {
-            result = _executeSetFee(data);
-        } else if (motionType == MotionType.SetTimeLock) {
-            result = _executeSetTimeLock(data);
-        } else if (motionType == MotionType.ApproveTokens) {
-            result = _executeApproveTokens(data);
-        } else if (motionType == MotionType.DisapproveTokens) {
-            result = _executeDisapproveTokens(data);
-        } else {
-            revert("Unsupported motion type.");
-        }
-
-        if (result) {
-            motion.status = MotionStatus.Executed;
-        } else {
-            motion.status = MotionStatus.ExecutionFailed;
-        }
-
-        return result;
     }
 
     function cancelMotion(uint motionID)
@@ -458,4 +459,7 @@ contract Board is BytesHandler, Unimplemented {
         motion.votesAgainst--;
         return failed && !_motionFails(motion);
     }
+
+
+    event SetFund(address indexed fund);
 }
