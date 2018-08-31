@@ -170,7 +170,7 @@ contract SafeDecimalMath {
     /**
      * @return The result of dividing x by y, interpreting the operands as fixed point decimal numbers.
      * @dev Throws an exception in case of overflow or zero divisor; x must be less than 2^256 / UNIT.
-     * Internal rounding is downward: a similar caveat holds as with safeDecMul().
+     * Internal rounding is downward: a similar caveat holds as with safeMul_dec().
      */
     function safeDiv_dec(uint x, uint y)
         pure
