@@ -515,10 +515,10 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return token.balanceOf(this);
     }
     
-    function approvedBalances()
+    function balances()
         public
         view
-        returns (address[] tokens, uint[] balances)
+        returns (address[] tokens, uint[] tokenBalances)
     {
         uint numTokens = approvedTokens.size();
         uint[] memory approvedBalances = new uint[](numTokens);
