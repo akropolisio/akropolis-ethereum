@@ -47,7 +47,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     //
 
     struct JoinRequest {
-        uint unlockTime;
+        uint timestamp;
+        uint lockupDuration;
         uint recurringPayment;
         uint paymentFrequency;
         uint initialContribution;
@@ -57,9 +58,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     struct Contribution {
         address contributor;
-        address token;
-        uint quantity;
         uint timestamp;
+        ERC20Token token;
+        uint quantity;
     }
 
     // Each user has a time after which they can withdraw benefits. Can be modified by fund directors.
@@ -81,6 +82,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     struct LogEntry {
         LogType logType;
+        uint timestamp;
         ERC20Token token;
         uint quantity;
         address account;
@@ -366,7 +368,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
         // Store the request on the blockchain
         joinRequests[msg.sender] = JoinRequest(
-            now + lockupPeriod,
+            now,
+            lockupPeriod,
             recurPayment,
             paymentFreq,
             contribution,
@@ -420,7 +423,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         emit newMemberAccepted(user);
         // Set their details in the mapping
         UserDetails storage details = userDetails[user];
-        details.unlockTime = request.unlockTime;
+        details.unlockTime = now + request.lockupDuration;
         details.joinTime = now;
         details.recurringPayment = request.recurringPayment;
         details.paymentFrequency = details.paymentFrequency;
@@ -449,7 +452,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
             token.transferFrom(contributor, this, quantity),
             "Unable to withdraw contribution."
         );
-        contributions[recipient].push(Contribution(contributor, token, quantity, now));
+        contributions[recipient].push(Contribution(contributor, now, token, quantity));
         _createShares(recipient, expectedShares);
     }
 
@@ -492,7 +495,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // TODO: check the Governor if this withdrawal is permitted.
         require(bytes(annotation).length > 0, "No annotation provided.");
         uint result = token.transfer(destination, quantity) ? 0 : 1;
-        managementLog.push(LogEntry(LogType.Withdrawal, token, quantity, destination, result, annotation));
+        managementLog.push(LogEntry(LogType.Withdrawal, now, token, quantity, destination, result, annotation));
         return result;
     }
 
@@ -504,7 +507,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // TODO: check the Governor if this approval is permitted.
         require(bytes(annotation).length > 0, "No annotation provided.");
         uint result = token.approve(spender, quantity) ? 0 : 1;
-        managementLog.push(LogEntry(LogType.Approval, token, quantity, spender, result, annotation));
+        managementLog.push(LogEntry(LogType.Approval, now, token, quantity, spender, result, annotation));
         return result;
     }
 
@@ -517,7 +520,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         require(bytes(annotation).length > 0, "No annotation provided.");
         require(token.allowance(depositor, this) >= quantity, "Insufficient depositor allowance.");
         uint result = token.transferFrom(depositor, this, quantity) ? 0 : 1;
-        managementLog.push(LogEntry(LogType.Deposit, token, quantity, depositor, result, annotation));
+        managementLog.push(LogEntry(LogType.Deposit, now, token, quantity, depositor, result, annotation));
         return result;
     }
 
