@@ -58,6 +58,7 @@ contract Board is BytesHandler, Unimplemented {
         MotionType motionType;
         MotionStatus status;
         address initiator;
+        uint timestamp;
         uint expiry;
         uint votesFor;
         uint votesAgainst;
@@ -201,6 +202,7 @@ contract Board is BytesHandler, Unimplemented {
             motionType,
             MotionStatus.Active,
             msg.sender,
+            now,
             now + duration,
             0, 0,
             description,
