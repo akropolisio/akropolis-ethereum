@@ -434,19 +434,17 @@ contract Board is BytesHandler {
     function voteForMotion(uint motionID)
         public
         onlyDirectors
-        returns (bool)
     {
         Motion storage motion = _getVotableMotion(motionID);
 
         if (_motionPastExpiry(motion)) {
             _expireMotion(motion);
-            return true;
+            return;
         }
 
         VoteType existingVote = motion.vote[msg.sender];
-
         if (existingVote == VoteType.Yes) {
-            return false;
+            return;
         }
 
         motion.vote[msg.sender] = VoteType.Yes;
@@ -457,27 +455,23 @@ contract Board is BytesHandler {
 
         if (_motionPasses(motion)) {
             motion.status = MotionStatus.Passed;
-            return true;
         }
-        return false;
     }
 
     function voteAgainstMotion(uint motionID)
         public
         onlyDirectors
-        returns (bool)
     {
         Motion storage motion = _getVotableMotion(motionID);
 
         if (_motionPastExpiry(motion)) {
             _expireMotion(motion);
-            return true;
+            return;
         }
 
         VoteType existingVote = motion.vote[msg.sender];
-
         if (existingVote == VoteType.No) {
-            return false;
+            return;
         }
 
         motion.vote[msg.sender] = VoteType.No;
@@ -488,46 +482,37 @@ contract Board is BytesHandler {
 
         if (_motionFails(motion)) {
             motion.status = MotionStatus.Failed;
-            return true;
         }
-        return false;
     }
 
     function abstainFromMotion(uint motionID)
         public
         onlyDirectors
-        returns (bool)
     {
         Motion storage motion = _getVotableMotion(motionID);
 
         if (_motionPastExpiry(motion)) {
             _expireMotion(motion);
-            return true;
+            return;
         }
 
         VoteType existingVote = motion.vote[msg.sender];
-
-        if (existingVote == VoteType.Abstain) {
-            return false;
-        }
-
         motion.vote[msg.sender] = VoteType.Abstain;
-
-        if (existingVote == VoteType.Absent) {
-            return false;
+        if (existingVote == VoteType.Abstain ||
+            existingVote == VoteType.Absent) {
+            return;
         }
 
         if (existingVote == VoteType.Yes) {
-            bool passed = _motionPasses(motion);
             motion.votesFor--;
-            return passed && !_motionPasses(motion);
+        } else if (existingVote == VoteType.No) {
+            motion.votesAgainst--;
         }
 
-        bool failed = _motionFails(motion);
-        motion.votesAgainst--;
-        return failed && !_motionFails(motion);
+        if (!(_motionPasses(motion) || _motionFails(motion))) {
+            motion.status = MotionStatus.Active;
+        }
     }
-
 
     event Resigned(address indexed director);
     event DirectorRemoved(address indexed director);
