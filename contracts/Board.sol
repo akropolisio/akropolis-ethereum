@@ -287,7 +287,8 @@ contract Board is BytesHandler {
         internal
         returns (bool)
     {
-        for (uint i = 0; i < data.length; i += ADDRESS_BYTES) {
+        uint dataLength = data.length;
+        for (uint i; i < dataLength; i += ADDRESS_BYTES) {
             directors.add(_extractAddress(data, i));
         }
         return true;
@@ -297,7 +298,8 @@ contract Board is BytesHandler {
         internal
         returns (bool)
     {
-        for (uint i = 0; i < data.length; i += ADDRESS_BYTES) {
+        uint dataLength = data.length;
+        for (uint i; i < dataLength; i += ADDRESS_BYTES) {
             directors.remove(_extractAddress(data, i));
         }
         return true;
@@ -337,8 +339,8 @@ contract Board is BytesHandler {
     {
         uint numTokens = data.length / ADDRESS_BYTES;
         ERC20Token[] memory tokens = new ERC20Token[](numTokens);
-        for (uint i = 0; i < data.length; i += ADDRESS_BYTES) {
-            tokens[i] = ERC20Token(_extractAddress(data, i));
+        for (uint i; i < numTokens; i++) {
+            tokens[i] = ERC20Token(_extractAddress(data, i*ADDRESS_BYTES));
         }
         return fund.approveTokens(tokens);
     }
@@ -349,8 +351,8 @@ contract Board is BytesHandler {
     {
         uint numTokens = data.length / ADDRESS_BYTES;
         ERC20Token[] memory tokens = new ERC20Token[](numTokens);
-        for (uint i = 0; i < data.length; i += ADDRESS_BYTES) {
-            tokens[i] = ERC20Token(_extractAddress(data, i));
+        for (uint i; i < numTokens; i++) {
+            tokens[i] = ERC20Token(_extractAddress(data, i*ADDRESS_BYTES));
         }
         return fund.disapproveTokens(tokens);
     }

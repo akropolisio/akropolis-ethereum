@@ -1,5 +1,4 @@
 pragma solidity ^0.4.24;
-pragma experimental "v0.5.0";
 
 
 import "../Board.sol";
@@ -43,6 +42,12 @@ contract PublicBoard is Board {
         returns (uint)
     {
         return _getVotableMotion(motionID).id;
+    }
+
+    function setFund(AkropolisFund _fund)
+        public
+    {
+        fund = _fund;
     }
 
     function executeSetManager(bytes data)
