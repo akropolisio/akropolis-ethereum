@@ -207,20 +207,14 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return true;
     }
 
-    function _setDenominatingAsset(ERC20Token asset)
-        internal
-    {
-        approvedTokens.remove(denominatingAsset);
-        approvedTokens.add(asset);
-        denominatingAsset = asset;
-    }
-
     function setDenominatingAsset(ERC20Token asset)
         external
         onlyBoard
         returns (bool)
     {
-        _setDenominatingAsset(asset);
+        approvedTokens.remove(denominatingAsset);
+        approvedTokens.add(asset);
+        denominatingAsset = asset;
     }
 
     function setDescriptionHash(bytes32 newHash)

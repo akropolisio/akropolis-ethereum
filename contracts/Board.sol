@@ -15,6 +15,8 @@ contract Board is BytesHandler {
         AddDirectors,
         RemoveDirectors,
         SetManagementFee,
+        SetMinimumTerm,
+        SetDenominatingAsset,
         ResetTimeLock,
         ApproveTokens,
         DisapproveTokens
@@ -236,6 +238,10 @@ contract Board is BytesHandler {
             result = _executeRemoveDirectors(data);
         } else if (motionType == MotionType.SetManagementFee) {
             result = _executeSetManagementFee(data);
+        } else if (motionType == MotionType.SetMinimumTerm) {
+            result = _executeSetMinimumTerm(data);
+        } else if (motionType == MotionType.SetDenominatingAsset) {
+            result = _executeSetDenominatingAsset(data);
         } else if (motionType == MotionType.ResetTimeLock) {
             result = _executeResetTimeLock(data);
         } else if (motionType == MotionType.ApproveTokens) {
@@ -297,6 +303,20 @@ contract Board is BytesHandler {
         returns (bool)
     {
         return fund.setManagementFee(_extractUint(data, 0));
+    }
+
+    function _executeSetMinimumTerm(bytes data)
+        internal
+        returns (bool)
+    {
+        return fund.setMinimumTerm(_extractUint(data, 0));
+    }
+
+    function _executeSetDenominatingAsset(bytes data)
+        internal
+        returns (bool)
+    {
+        return fund.setDenominatingAsset(ERC20Token(_extractAddress(data, 0)));
     }
 
     function _executeResetTimeLock(bytes data)

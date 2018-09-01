@@ -58,11 +58,11 @@ contract PublicBoard is Board {
         return _executeRemoveDirectors(data);
     }
 
-    function executeSetFee(bytes data)
+    function executeSetManagementFee(bytes data)
         public
         returns (bool)
     {
-        return _executeSetFee(data);
+        return _executeSetManagementFee(data);
     }
 
     function executeResetTimeLock(bytes data)
