@@ -226,7 +226,7 @@ contract Board is BytesHandler {
         returns (bool)
     {
         Motion storage motion = _getMotion(motionID);
-        require(motion.status == MotionStatus.Passed, "Motions must pass to be executed.");
+        require(motion.status == MotionStatus.Passed, "Motion must pass to be executed.");
 
         bytes storage data = motion.data;
         MotionType motionType = motion.motionType;
@@ -460,6 +460,7 @@ contract Board is BytesHandler {
         if (existingVote == VoteType.No) {
             motion.votesAgainst--;
         }
+        emit VoteCast(motionID, msg.sender, VoteType.Yes);
 
         if (_motionPasses(motion)) {
             motion.status = MotionStatus.Passed;
@@ -487,6 +488,7 @@ contract Board is BytesHandler {
         if (existingVote == VoteType.Yes) {
             motion.votesFor--;
         }
+        emit VoteCast(motionID, msg.sender, VoteType.No);
 
         if (_motionFails(motion)) {
             motion.status = MotionStatus.Failed;
@@ -516,6 +518,7 @@ contract Board is BytesHandler {
         } else if (existingVote == VoteType.No) {
             motion.votesAgainst--;
         }
+        emit VoteCast(motionID, msg.sender, VoteType.Abstain);
 
         if (!(_motionPasses(motion) || _motionFails(motion))) {
             motion.status = MotionStatus.Active;
@@ -526,6 +529,7 @@ contract Board is BytesHandler {
     event DirectorRemoved(address indexed director);
     event DirectorAdded(address indexed director);
     event MotionInitiated(uint indexed motionID);
+    event VoteCast(uint indexed motionID, address indexed director, VoteType indexed vote);
     event MotionExecuted(uint indexed motionID);
     event MotionExecutionFailed(uint indexed motionID);
     event MotionCancelled(uint indexed motionID);
