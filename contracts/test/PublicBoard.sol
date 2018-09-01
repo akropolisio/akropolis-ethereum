@@ -11,6 +11,26 @@ contract PublicBoard is Board {
         public
     {}
 
+    function pushMotion(MotionType motionType, MotionStatus status, uint duration,
+                        uint votesFor, uint votesAgainst, string description, bytes data)
+        public
+        returns (uint)
+    {
+        uint id = motions.length;
+
+        motions.push(Motion(
+            id,
+            motionType,
+            status,
+            msg.sender,
+            now + duration,
+            votesFor, votesAgainst,
+            description,
+            data));
+
+        return id;
+    }
+
     function getMotion(uint motionID)
         public
         view
