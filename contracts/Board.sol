@@ -289,7 +289,10 @@ contract Board is BytesHandler {
     {
         uint dataLength = data.length;
         for (uint i; i < dataLength; i += ADDRESS_BYTES) {
-            directors.add(_extractAddress(data, i));
+            address director = _extractAddress(data, i);
+            if (directors.add(director)) {
+                emit DirectorAdded(director);
+            }
         }
         return true;
     }
@@ -300,7 +303,10 @@ contract Board is BytesHandler {
     {
         uint dataLength = data.length;
         for (uint i; i < dataLength; i += ADDRESS_BYTES) {
-            directors.remove(_extractAddress(data, i));
+            address director = _extractAddress(data, i);
+            if (directors.remove(director)) {
+                emit DirectorRemoved(director);
+            }
         }
         return true;
     }
@@ -518,6 +524,7 @@ contract Board is BytesHandler {
 
     event Resigned(address indexed director);
     event DirectorRemoved(address indexed director);
+    event DirectorAdded(address indexed director);
     event MotionInitiated(uint indexed motionID);
     event MotionExecuted(uint indexed motionID);
     event MotionExecutionFailed(uint indexed motionID);
