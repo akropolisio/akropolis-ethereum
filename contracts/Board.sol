@@ -1,12 +1,6 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
-/*
-TODO: 
-Better process for votes, so that you can vote even if a vote has already passed,
-but not when it has executed.
-***/
-
 import "./utils/IterableSet.sol";
 import "./utils/BytesHandler.sol";
 import "./utils/Unimplemented.sol";
