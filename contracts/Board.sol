@@ -147,7 +147,7 @@ contract Board is BytesHandler, Unimplemented {
         view
         returns (Motion storage)
     {
-        require(motionID < motions.length, "Invalid motion ID");
+        require(motionID < motions.length, "Invalid motion ID.");
         return motions[motionID];
     }
 
