@@ -195,19 +195,28 @@ contract Board is BytesHandler, Unimplemented {
         returns (uint)
     {
         require(data.length > 0, "Data must not be empty.");
-        uint id = motions.length;
+        return _pushMotion(motionType, MotionStatus.Active, msg.sender,
+                           duration, 0, 0, description, data);
+    }
 
+    function _pushMotion(MotionType motionType, MotionStatus status,
+                         address initiator, uint duration,
+                         uint votesFor, uint votesAgainst,
+                         string description, bytes data)
+        internal
+        returns (uint)
+    {
+        uint id = motions.length;
         motions.push(Motion(
             id,
             motionType,
-            MotionStatus.Active,
-            msg.sender,
+            status,
+            initiator,
             now,
             now + duration,
-            0, 0,
+            votesFor, votesAgainst,
             description,
             data));
-
         return id;
     }
 
