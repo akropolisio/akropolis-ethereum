@@ -37,6 +37,14 @@ contract PublicBoard is Board {
         return _getActiveMotion(motionID).id;
     }
 
+    function getVotableMotion(uint motionID)
+        public
+        view
+        returns (uint)
+    {
+        return _getVotableMotion(motionID).id;
+    }
+
     function executeSetManager(bytes data)
         public
         returns (bool)
