@@ -243,6 +243,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function approveTokens(ERC20Token[] tokens)
       external
       onlyBoard
+      returns (bool)
     {
         for (uint i; i < tokens.length; i++) {
             approvedTokens.add(address(tokens[i]));
@@ -252,6 +253,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function disapproveTokens(ERC20Token[] tokens)
       external
       onlyBoard
+      returns (bool)
     {
         for (uint i; i < tokens.length; i++) {
             approvedTokens.remove(address(tokens[i]));

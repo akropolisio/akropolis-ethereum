@@ -3,10 +3,10 @@ pragma experimental "v0.5.0";
 
 import "./utils/IterableSet.sol";
 import "./utils/BytesHandler.sol";
-import "./utils/Unimplemented.sol";
+import "./interfaces/ERC20Token.sol";
 import "./AkropolisFund.sol";
 
-contract Board is BytesHandler, Unimplemented {
+contract Board is BytesHandler {
     using IterableSet for IterableSet.Set;
 
     enum MotionType {
@@ -14,8 +14,8 @@ contract Board is BytesHandler, Unimplemented {
         SetManager,
         AddDirectors,
         RemoveDirectors,
-        SetFee,
-        SetTimeLock,
+        SetManagementFee,
+        ResetTimeLock,
         ApproveTokens,
         DisapproveTokens
     }
@@ -234,10 +234,10 @@ contract Board is BytesHandler, Unimplemented {
             result = _executeAddDirectors(data);
         } else if (motionType == MotionType.RemoveDirectors) {
             result = _executeRemoveDirectors(data);
-        } else if (motionType == MotionType.SetFee) {
-            result = _executeSetFee(data);
-        } else if (motionType == MotionType.SetTimeLock) {
-            result = _executeSetTimeLock(data);
+        } else if (motionType == MotionType.SetManagementFee) {
+            result = _executeSetManagementFee(data);
+        } else if (motionType == MotionType.ResetTimeLock) {
+            result = _executeResetTimeLock(data);
         } else if (motionType == MotionType.ApproveTokens) {
             result = _executeApproveTokens(data);
         } else if (motionType == MotionType.DisapproveTokens) {
@@ -292,32 +292,42 @@ contract Board is BytesHandler, Unimplemented {
         return true;
     }
 
-    function _executeSetFee(bytes data)
+    function _executeSetManagementFee(bytes data)
         internal
         returns (bool)
     {
-        unimplemented();
+        return fund.setManagementFee(_extractUint(data, 0));
     }
 
-    function _executeSetTimeLock(bytes data)
+    function _executeResetTimeLock(bytes data)
         internal
         returns (bool)
     {
-        unimplemented();
+        return fund.resetTimeLock(_extractAddress(data, 0));
     }
 
     function _executeApproveTokens(bytes data)
         internal
         returns (bool)
     {
-        unimplemented();
+        uint numTokens = data.length / ADDRESS_BYTES;
+        ERC20Token[] memory tokens = new ERC20Token[](numTokens);
+        for (uint i = 0; i < data.length; i += ADDRESS_BYTES) {
+            tokens[i] = ERC20Token(_extractAddress(data, i));
+        }
+        return fund.approveTokens(tokens);
     }
 
     function _executeDisapproveTokens(bytes data)
         internal
         returns (bool)
     {
-        unimplemented();
+        uint numTokens = data.length / ADDRESS_BYTES;
+        ERC20Token[] memory tokens = new ERC20Token[](numTokens);
+        for (uint i = 0; i < data.length; i += ADDRESS_BYTES) {
+            tokens[i] = ERC20Token(_extractAddress(data, i));
+        }
+        return fund.disapproveTokens(tokens);
     }
 
     function cancelMotion(uint motionID)

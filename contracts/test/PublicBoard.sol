@@ -65,11 +65,11 @@ contract PublicBoard is Board {
         return _executeSetFee(data);
     }
 
-    function executeSetTimeLock(bytes data)
+    function executeResetTimeLock(bytes data)
         public
         returns (bool)
     {
-        return _executeSetTimeLock(data);
+        return _executeResetTimeLock(data);
     }
 
     function executeApproveTokens(bytes data)
