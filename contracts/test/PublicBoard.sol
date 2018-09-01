@@ -1,5 +1,4 @@
 pragma solidity ^0.4.24;
-pragma experimental "v0.5.0";
 
 
 import "../Board.sol";
@@ -10,6 +9,16 @@ contract PublicBoard is Board {
         Board(initialDirectors)
         public
     {}
+
+    function pushMotion(MotionType motionType, MotionStatus status, uint duration,
+                        uint votesFor, uint votesAgainst, string description, bytes data)
+        public
+        returns (uint)
+    {
+        _pushMotion(motionType, status, msg.sender,
+                    duration, votesFor, votesAgainst,
+                    description, data);
+    }
 
     function getMotion(uint motionID)
         public
@@ -27,12 +36,18 @@ contract PublicBoard is Board {
         return _getActiveMotion(motionID).id;
     }
 
-    function isValidMotionType(MotionType motionType)
-        pure
+    function getVotableMotion(uint motionID)
         public
-        returns (bool)
+        view
+        returns (uint)
     {
-        return _isValidMotionType(motionType);
+        return _getVotableMotion(motionID).id;
+    }
+
+    function setFund(AkropolisFund _fund)
+        public
+    {
+        fund = _fund;
     }
 
     function executeSetManager(bytes data)
@@ -56,18 +71,18 @@ contract PublicBoard is Board {
         return _executeRemoveDirectors(data);
     }
 
-    function executeSetFee(bytes data)
+    function executeSetManagementFee(bytes data)
         public
         returns (bool)
     {
-        return _executeSetFee(data);
+        return _executeSetManagementFee(data);
     }
 
-    function executeSetTimeLock(bytes data)
+    function executeResetTimeLock(bytes data)
         public
         returns (bool)
     {
-        return _executeSetTimeLock(data);
+        return _executeResetTimeLock(data);
     }
 
     function executeApproveTokens(bytes data)
