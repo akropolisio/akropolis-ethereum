@@ -125,6 +125,8 @@ contract Board is BytesHandler {
     {
         require(directors.size() > 1, "Sole director cannot resign.");
         directors.remove(msg.sender);
+        emit Resigned(msg.sender);
+        emit DirectorRemoved(msg.sender);
     }
 
     function numMotions()
@@ -191,8 +193,10 @@ contract Board is BytesHandler {
         returns (uint)
     {
         require(data.length > 0, "Data must not be empty.");
-        return _pushMotion(motionType, MotionStatus.Active, msg.sender,
-                           duration, 0, 0, description, data);
+        uint id = _pushMotion(motionType, MotionStatus.Active, msg.sender,
+                              duration, 0, 0, description, data);
+        emit MotionInitiated(id);
+        return id;
     }
 
     function _pushMotion(MotionType motionType, MotionStatus status,
@@ -254,8 +258,10 @@ contract Board is BytesHandler {
 
         if (result) {
             motion.status = MotionStatus.Executed;
+            emit MotionExecuted(motionID);
         } else {
             motion.status = MotionStatus.ExecutionFailed;
+            emit MotionExecutionFailed(motionID);
         }
 
         return result;
@@ -267,7 +273,6 @@ contract Board is BytesHandler {
     {
         address fundAddress = _extractAddress(data, 0);
         fund = AkropolisFund(fundAddress);
-        emit SetFund(fundAddress);
         return true;
     }
 
@@ -358,6 +363,15 @@ contract Board is BytesHandler {
         require(msg.sender == motion.initiator, "Only the initiator may cancel a motion.");
         require(motion.votesFor + motion.votesAgainst == 0, "Motions with non-abstention votes cannot be cancelled.");
         motion.status = MotionStatus.Cancelled;
+        emit MotionCancelled(motionID);
+    }
+
+    function _motionPastExpiry(Motion storage motion)
+        internal
+        view
+        returns (bool)
+    {
+        return motion.expiry < now;
     }
 
     function motionPastExpiry(uint motionID) 
@@ -366,7 +380,15 @@ contract Board is BytesHandler {
         returns (bool)
     {
         Motion storage motion = _getMotion(motionID);
-        return motion.expiry < now;
+        return _motionPastExpiry(motion);
+    }
+
+    function _expireMotion(Motion storage motion)
+        internal
+    {
+        require(_motionPastExpiry(motion), "Motion has not expired.");
+        motion.status = MotionStatus.Expired;
+        emit MotionExpired(motion.id);
     }
 
     function expireMotion(uint motionID)
@@ -374,8 +396,7 @@ contract Board is BytesHandler {
         onlyDirectors
     {
         Motion storage motion = _getVotableMotion(motionID);
-        require(motionPastExpiry(motionID), "Motion has not expired.");
-        motion.status = MotionStatus.Expired;
+        _expireMotion(motion);
     }
 
     function motionPasses(uint motionID) 
@@ -393,7 +414,6 @@ contract Board is BytesHandler {
     {
         return _motionFails(_getActiveMotion(motionID));
     }
-
 
     function _motionPasses(Motion storage motion)
         internal
@@ -418,8 +438,8 @@ contract Board is BytesHandler {
     {
         Motion storage motion = _getVotableMotion(motionID);
 
-        if (motionPastExpiry(motionID)) {
-            motion.status = MotionStatus.Expired;
+        if (_motionPastExpiry(motion)) {
+            _expireMotion(motion);
             return true;
         }
 
@@ -449,8 +469,8 @@ contract Board is BytesHandler {
     {
         Motion storage motion = _getVotableMotion(motionID);
 
-        if (motionPastExpiry(motionID)) {
-            motion.status = MotionStatus.Expired;
+        if (_motionPastExpiry(motion)) {
+            _expireMotion(motion);
             return true;
         }
 
@@ -480,8 +500,8 @@ contract Board is BytesHandler {
     {
         Motion storage motion = _getVotableMotion(motionID);
 
-        if (motionPastExpiry(motionID)) {
-            motion.status = MotionStatus.Expired;
+        if (_motionPastExpiry(motion)) {
+            _expireMotion(motion);
             return true;
         }
 
@@ -509,5 +529,11 @@ contract Board is BytesHandler {
     }
 
 
-    event SetFund(address indexed fund);
+    event Resigned(address indexed director);
+    event DirectorRemoved(address indexed director);
+    event MotionInitiated(uint indexed motionID);
+    event MotionExecuted(uint indexed motionID);
+    event MotionExecutionFailed(uint indexed motionID);
+    event MotionCancelled(uint indexed motionID);
+    event MotionExpired(uint indexed motionID);
 }
