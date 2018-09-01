@@ -114,6 +114,14 @@ contract Board is BytesHandler, Unimplemented {
         return directors.get(i);
     }
 
+    function getDirectors()
+        public
+        view
+        returns (address[])
+    {
+        return directors.itemList();
+    }
+
     function resignAsDirector()
         public
         onlyDirectors
@@ -264,14 +272,20 @@ contract Board is BytesHandler, Unimplemented {
         internal
         returns (bool)
     {
-        unimplemented();
+        for (uint i = 0; i < data.length; i += ADDRESS_BYTES) {
+            directors.add(_extractAddress(data, i));
+        }
+        return true;
     }
 
     function _executeRemoveDirectors(bytes data)
         internal
         returns (bool)
     {
-        unimplemented();
+        for (uint i = 0; i < data.length; i += ADDRESS_BYTES) {
+            directors.remove(_extractAddress(data, i));
+        }
+        return true;
     }
 
     function _executeSetFee(bytes data)
