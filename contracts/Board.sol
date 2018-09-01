@@ -11,9 +11,9 @@ contract Board is BytesHandler {
 
     enum MotionType {
         SetFund,
-        SetManager,
         AddDirectors,
         RemoveDirectors,
+        SetManager,
         SetManagementFee,
         SetMinimumTerm,
         SetDenominatingAsset,
