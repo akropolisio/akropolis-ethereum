@@ -273,7 +273,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (address[])
     {
-        return approvedTokens.itemList();
+        return approvedTokens.array();
     }
 
     function isMember(address user)
@@ -545,6 +545,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
             approvedBalances[i] = token.balanceOf(this);
         }
 
-        return (approvedTokens.itemList(), approvedBalances);
+        return (approvedTokens.array(), approvedBalances);
     }
 }

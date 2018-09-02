@@ -72,7 +72,7 @@ library IterableSet {
         return s.items[index];
     }
 
-    function itemList(Set storage s)
+    function array(Set storage s)
         internal
         view
         assertInitialised(s)

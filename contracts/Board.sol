@@ -116,7 +116,7 @@ contract Board is BytesHandler {
         view
         returns (address[])
     {
-        return directors.itemList();
+        return directors.array();
     }
 
     function resignAsDirector()

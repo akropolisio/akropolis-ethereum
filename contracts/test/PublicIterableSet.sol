@@ -76,12 +76,12 @@ contract PublicIterableSet {
         return set.get(i);
     }
 
-    function itemList()
+    function array()
         public
         view
         returns (address[])
     {
-        return set.itemList();
+        return set.array();
     }
 
     function add(address a)
