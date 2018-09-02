@@ -72,8 +72,11 @@ contract Ticker is Owned, Unimplemented {
         external
         onlyOwner
     {
-        // Empty and de-initialise sets.
-        unimplemented();
+        OraclePermissions storage permissions = oracles[oracle];
+        delete permissions.isOracle;
+        delete permissions.isUniversal;
+        permissions.allowed.destroy();
+        permissions.disallowed.destroy();
     }
 
     function updatePrices(ERC20Token[] tokens, uint[] prices)
@@ -94,7 +97,7 @@ contract Ticker is Owned, Unimplemented {
         returns (uint price, uint timestamp, address oracle)
     {
         PriceData[] storage tokenHistory = history[token];
-        PriceData latest = tokenHistory[tokenHistory.length - 1];
+        PriceData storage latest = tokenHistory[tokenHistory.length - 1];
         return (latest.price, latest.timestamp, latest.oracle);
     }
 
