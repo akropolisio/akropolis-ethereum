@@ -22,7 +22,7 @@ library IterableSet {
     }
 
     function isInitialised(Set storage s)
-        internal
+        public
         view
         returns (bool)
     {
