@@ -22,11 +22,25 @@ library IterableSet {
     }
 
     function isInitialised(Set storage s)
-        public
+        internal
         view
         returns (bool)
     {
-        return s.items.length != 0 && s.items[0] == address(0);
+        return s.items.length != 0;
+    }
+
+    function destroy(Set storage s)
+        internal
+        assertInitialised(s)
+    {
+        uint length = s.items.length;
+
+        for (uint i; i < length; i++) {
+            delete s.indices[s.items[i]];
+            delete s.items[i];
+        }
+
+        s.items.length = 0;
     }
 
     function size(Set storage s)
