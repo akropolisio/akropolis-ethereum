@@ -8,7 +8,7 @@ import "./utils/Owned.sol";
 contract Ticker is Owned, Unimplemented {
     using IterableSet for IterableSet.Set;
     
-    ERC20Token public denominatingAsset;
+    ERC20Token public denomination;
 
     mapping(address => PriceData[]) history;
     mapping(address => OraclePermissions) oracles;
@@ -79,10 +79,27 @@ contract Ticker is Owned, Unimplemented {
         permissions.disallowed.destroy();
     }
 
+    function setDenomination(ERC20Token token)
+        external
+        onlyOwner
+    {
+        denomination = token;
+    }
+
     function updatePrices(ERC20Token[] tokens, uint[] prices)
         external
     {
-        unimplemented();
+        require(tokens.length == prices.length, "Token and price array lengths differ.");
+
+        for (uint i; i < tokens.length; i++) {
+            ERC20Token token = tokens[i];
+            PriceData[] storage tokenHistory = history[token];
+
+            // Sender must be approved, and disallow multiple updates per block.
+            if (isOracleFor(msg.sender, token) && tokenHistory[tokenHistory.length - 1].timestamp < now) {
+                tokenHistory.push(PriceData(prices[i], now, msg.sender));
+            }
+        }
     }
     
     function historyLength(ERC20Token token)
@@ -122,5 +139,4 @@ contract Ticker is Owned, Unimplemented {
     {
         unimplemented();
     }
-
 }
