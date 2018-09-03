@@ -2,13 +2,15 @@ pragma solidity ^0.4.24;
 
 import "./interfaces/ERC20Token.sol";
 import "./utils/Unimplemented.sol";
+import "./utils/SafeMultiprecisionDecimalMath.sol";
 import "./utils/IterableSet.sol";
 import "./utils/Owned.sol";
 
-contract Ticker is Owned, Unimplemented {
+contract Ticker is Owned, SafeMultiprecisionDecimalMath, Unimplemented {
     using IterableSet for IterableSet.Set;
     
     ERC20Token public denomination;
+    uint8 public denominationDecimals;
 
     mapping(address => PriceData[]) history;
     mapping(address => OraclePermissions) oracles;
@@ -84,6 +86,7 @@ contract Ticker is Owned, Unimplemented {
         onlyOwner
     {
         denomination = token;
+        denominationDecimals = token.decimals();
     }
 
     function updatePrices(ERC20Token[] tokens, uint[] prices)
@@ -130,10 +133,12 @@ contract Ticker is Owned, Unimplemented {
         public
         returns (uint)
     {
-        unimplemented();
+        return safeMul_mpdec(quantity, token.decimals(),
+                             price(token), denominationDecimals,
+                             denominationDecimals);
     }
 
-    function rate(ERC20Token quote, ERC20Token base)
+    function rate(ERC20Token base, ERC20Token quote)
         public
         returns (uint)
     {
