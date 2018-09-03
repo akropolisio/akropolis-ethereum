@@ -142,6 +142,9 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath, Unimplemented {
         public
         returns (uint)
     {
-        unimplemented();
+        uint quoteDecimals = quote.decimals();
+        return safeDiv_mpdec(price(base), base.decimals(),
+                             price(quote), quoteDecimals,
+                             quoteDecimals);
     }
 }
