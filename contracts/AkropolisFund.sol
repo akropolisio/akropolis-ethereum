@@ -7,15 +7,13 @@ import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
 import "./utils/Unimplemented.sol";
+import "./utils/Owned.sol";
 
-contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
+contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemented {
     using IterableSet for IterableSet.Set;
 
     // The pension fund manger
     address public manager;
-
-    // The board contract, when the board wants to interact with the fund
-    Board public board;
 
     // Percentage of AUM over one year.
     // TODO: Add a flat rate as well. Maybe also performance fees.
@@ -47,6 +45,8 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     // mapping of candidate members to their historic contributions.
     mapping(address => Contribution[]) public contributions;
 
+    LogEntry[] public managementLog;
+
     //
     // structs
     //
@@ -66,6 +66,21 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         uint timestamp;
     }
 
+    enum LogType {
+        Withdrawal,
+        Deposit,
+        Approval
+    }
+
+    struct LogEntry {
+        LogType logType;
+        ERC20Token token;
+        uint quantity;
+        address account;
+        uint code;
+        string annotation;
+    }
+
     //
     // events
     //
@@ -82,12 +97,12 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
     //
 
     modifier onlyBoard() {
-        require(msg.sender == address(board), "Sender is not the Board of Directors.");
+        require(msg.sender == address(board()), "Sender is not the Board of Directors.");
         _;
     }
 
     modifier onlyManager() {
-        require(msg.sender == manager, "Sender is not the manager.");
+        require(msg.sender == manager, "Sender is not the fund manager.");
         _;
     }
 
@@ -128,11 +143,11 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         string _symbol,
         bytes32 _descriptionHash
     )
+        Owned(_board)
         NontransferableShare(_name, _symbol)
         public
     {
         // Manager is null by default. A new one must be formally approved.
-        board = _board;
         managementFeePerYear = _managementFeePerYear;
         minimumTerm = _minimumTerm;
         joiningFee = _joiningFee;
@@ -156,12 +171,12 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         return true;
     }
 
-    function setBoard(Board newBoard)
+    function nominateNewBoard(Board newBoard)
         external
         onlyBoard
         returns (bool)
     {
-        board = newBoard;
+        nominateNewOwner(address(newBoard));
         return true;
     }
 
@@ -299,6 +314,22 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         return members.get(i);
     }
 
+    function board()
+        public
+        view
+        returns (Board)
+    {
+        return Board(owner);
+    }
+
+    function managementLogLength()
+        public
+        view
+        returns (uint)
+    {
+        return managementLog.length;
+    }
+
     // U4 - Join a new fund
     function joinFund(uint lockupPeriod, ERC20Token token, uint contribution, uint expectedShares)
         public
@@ -340,7 +371,7 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
 
         require(
             token.allowance(msg.sender, this) >= requirement,
-            "Insufficient allowance for nitial contribution."
+            "Insufficient allowance for initial contribution."
         );
 
         // Emit an event now that we've passed all the criteria for submitting a request to join
@@ -435,6 +466,45 @@ contract AkropolisFund is PensionFund, NontransferableShare, Unimplemented {
         onlyManager
     {
         unimplemented();
+    }
+
+    // TODO: Make these manager functions two-stage so that, for example, large
+    // transfers might require board approval before they go through.
+    function withdraw(ERC20Token token, address destination, uint quantity, string annotation)
+        external
+        onlyManager
+        returns (uint)
+    {
+        // TODO: check the Governor if this withdrawal is permitted.
+        require(bytes(annotation).length > 0, "No annotation provided.");
+        uint result = token.transfer(destination, quantity) ? 0 : 1;
+        managementLog.push(LogEntry(LogType.Withdrawal, token, quantity, destination, result, annotation));
+        return result;
+    }
+
+    function approveWithdrawal(ERC20Token token, address spender, uint quantity, string annotation)
+        external
+        onlyManager
+        returns (uint)
+    {
+        // TODO: check the Governor if this approval is permitted.
+        require(bytes(annotation).length > 0, "No annotation provided.");
+        uint result = token.approve(spender, quantity) ? 0 : 1;
+        managementLog.push(LogEntry(LogType.Approval, token, quantity, spender, result, annotation));
+        return result;
+    }
+
+    function deposit(ERC20Token token, address depositor, uint quantity, string annotation)
+        external
+        onlyManager
+        returns (uint)
+    {
+        // TODO: check the Governor if this deposit is permitted.
+        require(bytes(annotation).length > 0, "No annotation provided.");
+        require(token.allowance(depositor, this) >= quantity, "Insufficient depositor allowance.");
+        uint result = token.transferFrom(depositor, this, quantity) ? 0 : 1;
+        managementLog.push(LogEntry(LogType.Deposit, token, quantity, depositor, result, annotation));
+        return result;
     }
 
     function balanceOfToken(ERC20Token token)
