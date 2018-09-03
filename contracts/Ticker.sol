@@ -30,10 +30,12 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath, Unimplemented {
 
     constructor() 
         Owned(msg.sender)
+        public
     {}
 
     function isOracle(address oracle) 
         external
+        view
         returns (bool)
     {
         return oracles[oracle].isOracle;
@@ -41,6 +43,7 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath, Unimplemented {
 
     function isUniversalOracle(address oracle)
         external
+        view
         returns (bool)
     {
         return oracles[oracle].isUniversal;
@@ -48,13 +51,14 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath, Unimplemented {
 
     function isOracleFor(address oracle, ERC20Token token)
         public
+        view
         returns (bool)
     {
         OraclePermissions storage permissions = oracles[oracle];
         return (
             permissions.isOracle && // Implies sets are initialised.
             !permissions.disallowed.contains(token) &&
-            ( permissions.isUniversal || permissions.allowed.contains(token) )
+            (permissions.isUniversal || permissions.allowed.contains(token))
         );
     }
 
@@ -107,6 +111,7 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath, Unimplemented {
     
     function historyLength(ERC20Token token)
         public
+        view
         returns (uint)
     {
         return history[token].length;
@@ -114,6 +119,7 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath, Unimplemented {
 
     function latestPriceData(ERC20Token token)
         public
+        view
         returns (uint price, uint timestamp, address oracle)
     {
         PriceData[] storage tokenHistory = history[token];
@@ -123,6 +129,7 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath, Unimplemented {
 
     function price(ERC20Token token)
         public
+        view
         returns (uint)
     {
         PriceData[] storage tokenHistory = history[token];
@@ -131,6 +138,7 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath, Unimplemented {
 
     function value(ERC20Token token, uint quantity) 
         public
+        view
         returns (uint)
     {
         return safeMul_mpdec(quantity, token.decimals(),
@@ -140,6 +148,7 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath, Unimplemented {
 
     function rate(ERC20Token base, ERC20Token quote)
         public
+        view
         returns (uint)
     {
         uint quoteDecimals = quote.decimals();
