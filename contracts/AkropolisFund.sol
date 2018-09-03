@@ -549,6 +549,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (ERC20Token[] tokens, uint[] tokenBalances)
     {
+        // TODO: Compute this more efficiently; not all approved tokens necessarily have balances.
+        // It could maintain a separate array of the tokens which it actually possesses nonzero balances of.
+        // This would be updated whenever tokens are withdrawn or deposited.
         uint numTokens = approvedTokens.size();
         uint[] memory bals = new uint[](numTokens);
         ERC20Token[] memory toks = new ERC20Token[](numTokens);
@@ -577,5 +580,20 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         (ERC20Token[] memory toks, uint[] memory bals) = _balances();
         return (toks, ticker.values(toks, bals));
+    }
+
+    function fundValue()
+        public
+        view
+        returns (uint)
+    {
+        (ERC20Token[] memory toks, uint[] memory bals) = _balances();
+        uint[] memory vals = ticker.values(toks, bals);
+
+        uint total;
+        for (uint i; i < vals.length; i++) {
+            total += vals[i];
+        }
+        return total;
     }
 }
