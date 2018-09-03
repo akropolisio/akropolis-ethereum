@@ -110,11 +110,12 @@ contract Registry is Owned {
         return Funds.size();
     }
 
-    function fundAt(uint index) 
+    function fundList()
         external 
         view 
-        returns(address)
+        returns(address[])
     {
-        return Funds.get(index);
+        return Funds.itemList();
     }
+
 }
