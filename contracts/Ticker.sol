@@ -145,6 +145,32 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
                              denominationDecimals);
     }
 
+    function prices(ERC20Token[] tokens)
+        public
+        view
+        returns (uint[])
+    {
+        uint numTokens = tokens.length;
+        uint[] memory tokenPrices = new uint[](numTokens);
+        for (uint i; i < numTokens; i++) {
+            tokenPrices[i] = price(tokens[i]);
+        }
+        return tokenPrices;
+    }
+
+    function values(ERC20Token[] tokens, uint[] quantities) 
+        public
+        view
+        returns (uint[])
+    {
+        uint numTokens = tokens.length;
+        uint[] memory vals = new uint[](numTokens);
+        for (uint i; i < numTokens; i++) {
+            vals[i] = value(tokens[i], quantities[i]);
+        }
+        return vals;
+    }
+
     function rate(ERC20Token base, ERC20Token quote)
         public
         view

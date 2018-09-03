@@ -2,6 +2,7 @@ pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
 import "./Board.sol";
+import "./Ticker.sol";
 import "./NontransferableShare.sol";
 import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
@@ -14,6 +15,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     // The pension fund manger
     address public manager;
+
+    // The ticker to source price data from
+    Ticker public ticker;
 
     // Percentage of AUM over one year.
     // TODO: Add a flat rate as well. Maybe also performance fees.
@@ -531,20 +535,47 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         return token.balanceOf(this);
     }
-    
+
+    function balanceValueOfToken(ERC20Token token)
+        public
+        view
+        returns (uint)
+    {
+        return ticker.value(token, token.balanceOf(this));
+    }
+
+    function _balances()
+        internal
+        view
+        returns (ERC20Token[] tokens, uint[] tokenBalances)
+    {
+        uint numTokens = approvedTokens.size();
+        uint[] memory bals = new uint[](numTokens);
+        ERC20Token[] memory toks = new ERC20Token[](numTokens);
+
+        for (uint i; i < numTokens; i++) {
+            ERC20Token token = ERC20Token(approvedTokens.get(i));
+            bals[i] = token.balanceOf(this);
+            toks[i] = token;
+        }
+
+        return (toks, bals);
+    }
+
     function balances()
         public
         view
-        returns (address[] tokens, uint[] tokenBalances)
+        returns (ERC20Token[] tokens, uint[] tokenBalances)
     {
-        uint numTokens = approvedTokens.size();
-        uint[] memory approvedBalances = new uint[](numTokens);
+        return _balances();
+    }
 
-        for (uint i = 0; i < numTokens; i++) {
-            ERC20Token token = ERC20Token(approvedTokens.get(i));
-            approvedBalances[i] = token.balanceOf(this);
-        }
-
-        return (approvedTokens.array(), approvedBalances);
+    function balanceValues()
+        public
+        view
+        returns (ERC20Token[] tokens, uint[] tokenValues)
+    {
+        (ERC20Token[] memory toks, uint[] memory bals) = _balances();
+        return (toks, ticker.values(toks, bals));
     }
 }
