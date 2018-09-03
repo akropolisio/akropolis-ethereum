@@ -20,6 +20,7 @@ contract Registry is Owned {
 
     // List the funds a user is in
     mapping(address => AkropolisFund[]) public userToFunds;
+    mapping(address => IterableSet.Set) userToRequests;
 
     event NewFund(AkropolisFund indexed fund);
     event RemovedFund(AkropolisFund indexed fund);
@@ -35,6 +36,11 @@ contract Registry is Owned {
         Funds.initialise();
         emit NewFee(joiningFee);
         emit NewFeeToken(feeToken);
+    }
+
+    modifier onlyRegistered(address fund) {
+        require(Funds.contains(fund), "fund address not registered");
+        _;
     }
 
     function setJoiningFee(uint _joiningFee)
@@ -53,14 +59,14 @@ contract Registry is Owned {
         emit NewFeeToken(feeToken);
     }
 
-    function addFund()
+    function addFund(address payer)
         external 
         returns(bool)
     {
         // This function is called by the fund itself!
-        // Take the fee, contract must have paid allowance first
+        // Take the fee, payer must have paid allowance first, this will probably be the person deploying the fund!
         require(
-            feeToken.transferFrom(msg.sender, this, joiningFee),
+            feeToken.transferFrom(payer, this, joiningFee),
             "Failed to receive fee payment"
         );
         // Ensure the fund isn't already listed here
@@ -71,6 +77,30 @@ contract Registry is Owned {
         emit NewFund(AkropolisFund(msg.sender));
         // Return true if the above didn't revert
         return true;
+    }
+
+
+    function joinFund(AkropolisFund fund, uint lockupPeriod, ERC20Token token, uint contribution, uint expectedShares)
+        public
+        onlyRegistered(fund)
+    {
+        // we need to store some kind of marker here that the sender has sent the 
+        fund.joinFund(msg.sender, lockupPeriod, token, contribution, expectedShares);
+        IterableSet.Set storage requests = userToRequests[msg.sender];
+        if (!requests.isInitialised()) {
+            requests.initialise();
+        }
+        requests.add(fund);
+    }
+
+    function approveJoinRequest(address user)
+        public
+        onlyRegistered(msg.sender)
+    {
+        IterableSet.Set storage requests = userToRequests[user];
+        require(requests.contains(user), "User must have sent a request");
+        requests.remove(user);
+        userToFunds[user].push(AkropolisFund(msg.sender));
     }
 
     function removeFund()
@@ -91,15 +121,6 @@ contract Registry is Owned {
         return feeToken.transfer(to, quantity);
     }
 
-    function addUser(AkropolisFund fund)
-        external
-    {
-        // The user adds itself to the registry
-        require(Funds.contains(fund), "Fund is not in registry");
-        // require the user to be in the fund
-        require(fund.isMember(msg.sender), "Sender is not a member of fund");
-        userToFunds[msg.sender].push(fund);
-    }
 
     function fundSize()
         external 
