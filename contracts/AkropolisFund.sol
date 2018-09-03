@@ -30,6 +30,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // Tokens that this fund is approved to own.
     IterableSet.Set approvedTokens;
 
+    // Tokens with nonzero balances.
+    IterableSet.Set ownedTokens;
+
     // Token in which benefits will be paid.
     ERC20Token public denominatingAsset;
 
@@ -159,6 +162,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
         members.initialise();
         approvedTokens.initialise();
+        ownedTokens.initialise();
 
         // By default, the denominating asset is an approved investible token.
         denominatingAsset = _denominatingAsset;
@@ -410,6 +414,26 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         delete joinRequests[msg.sender];
     }
 
+    function _maybeAddOwnedToken(ERC20Token token)
+        internal
+    {
+        if (!ownedTokens.contains(token)) {
+            if(token.balanceOf(this) > 0) {
+                ownedTokens.add(token);
+            }
+        }
+    }
+
+    function _maybeRemoveOwnedToken(ERC20Token token)
+        internal
+    {
+        if (ownedTokens.contains(token)) {
+            if(token.balanceOf(this) == 0) {
+                ownedTokens.remove(token);
+            }
+        }
+    }
+
     function approveJoinRequest(address user)
         public
         onlyManager
@@ -456,6 +480,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
             token.transferFrom(contributor, this, quantity),
             "Unable to withdraw contribution."
         );
+        _maybeAddOwnedToken(token);
         contributions[recipient].push(Contribution(contributor, now, token, quantity));
         _createShares(recipient, expectedShares);
     }
@@ -499,6 +524,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // TODO: check the Governor if this withdrawal is permitted.
         require(bytes(annotation).length > 0, "No annotation provided.");
         uint result = token.transfer(destination, quantity) ? 0 : 1;
+        _maybeRemoveOwnedToken(token);
         managementLog.push(LogEntry(LogType.Withdrawal, now, token, quantity, destination, result, annotation));
         return result;
     }
@@ -524,6 +550,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         require(bytes(annotation).length > 0, "No annotation provided.");
         require(token.allowance(depositor, this) >= quantity, "Insufficient depositor allowance.");
         uint result = token.transferFrom(depositor, this, quantity) ? 0 : 1;
+        _maybeAddOwnedToken(token);
         managementLog.push(LogEntry(LogType.Deposit, now, token, quantity, depositor, result, annotation));
         return result;
     }
@@ -549,14 +576,10 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (ERC20Token[] tokens, uint[] tokenBalances)
     {
-        // TODO: Compute this more efficiently; not all approved tokens necessarily have balances.
-        // It could maintain a separate array of the tokens which it actually possesses nonzero balances of.
-        // This would be updated whenever tokens are withdrawn or deposited.
-        uint numTokens = approvedTokens.size();
+        uint numTokens = ownedTokens.size();
         uint[] memory bals = new uint[](numTokens);
         ERC20Token[] memory toks = new ERC20Token[](numTokens);
 
-        // TODO: Check if it's more efficient to return only non-zero balance tokens.
         for (uint i; i < numTokens; i++) {
             ERC20Token token = ERC20Token(approvedTokens.get(i));
             bals[i] = token.balanceOf(this);
