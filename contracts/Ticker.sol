@@ -1,12 +1,11 @@
 pragma solidity ^0.4.24;
 
 import "./interfaces/ERC20Token.sol";
-import "./utils/Unimplemented.sol";
 import "./utils/SafeMultiprecisionDecimalMath.sol";
 import "./utils/IterableSet.sol";
 import "./utils/Owned.sol";
 
-contract Ticker is Owned, SafeMultiprecisionDecimalMath, Unimplemented {
+contract Ticker is Owned, SafeMultiprecisionDecimalMath {
     using IterableSet for IterableSet.Set;
     
     ERC20Token public denomination;
