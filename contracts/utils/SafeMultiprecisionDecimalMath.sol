@@ -7,7 +7,7 @@ file:       SafeMultiprecisionDecimalMath.sol
 version:    1.0
 author:     Anton Jurisevic
 
-date:       2018-2-5
+date:       2018-9-3
 
 -----------------------------------------------------------------
 MODULE DESCRIPTION
@@ -26,7 +26,6 @@ operands.
 */
 
 pragma solidity 0.4.24;
-pragma experimental "v0.5.0";
 
 
 /**
