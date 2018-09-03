@@ -556,6 +556,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         uint[] memory bals = new uint[](numTokens);
         ERC20Token[] memory toks = new ERC20Token[](numTokens);
 
+        // TODO: Check if it's more efficient to return only non-zero balance tokens.
         for (uint i; i < numTokens; i++) {
             ERC20Token token = ERC20Token(approvedTokens.get(i));
             bals[i] = token.balanceOf(this);
