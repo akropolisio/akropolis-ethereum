@@ -47,7 +47,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // mapping of candidate members to their historic contributions.
     mapping(address => Contribution[]) public contributions;
 
+    // Historic record of actions taken by the fund manager.
     LogEntry[] public managementLog;
+
+    // The frequency at which the fund recomputes its value.
+    uint public recomputationDelay = 1 days;
 
     //
     // structs
@@ -205,6 +209,15 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return true;
     }
 
+    function setRecomputationDelay(uint delay)
+        external
+        onlyBoard
+        returns (bool)
+    {
+        recomputationDelay = delay;
+        return true;
+    }
+
     function setDenomination(ERC20Token token)
         external
         onlyBoard
@@ -213,6 +226,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         approvedTokens.remove(denomination);
         approvedTokens.add(token);
         denomination = token;
+        return true;
     }
 
     function setDescriptionHash(bytes32 newHash)
@@ -230,6 +244,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         returns (bool)
     {
         userDetails[user].unlockTime = now;
+        return true;
     }
 
     function approveTokens(ERC20Token[] tokens)
@@ -240,6 +255,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         for (uint i; i < tokens.length; i++) {
             approvedTokens.add(address(tokens[i]));
         }
+        return true;
     }
 
     function disapproveTokens(ERC20Token[] tokens)
@@ -250,6 +266,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         for (uint i; i < tokens.length; i++) {
             approvedTokens.remove(address(tokens[i]));
         }
+        return true;
     }
 
     function isApprovedToken(address token) 

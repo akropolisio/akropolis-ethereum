@@ -18,6 +18,7 @@ contract Board is BytesHandler {
         SetMinimumTerm,
         SetDenomination,
         ResetTimeLock,
+        SetRecomputationDelay,
         ApproveTokens,
         DisapproveTokens
     }
@@ -248,6 +249,8 @@ contract Board is BytesHandler {
             result = _executeSetDenomination(data);
         } else if (motionType == MotionType.ResetTimeLock) {
             result = _executeResetTimeLock(data);
+        } else if (motionType == MotionType.SetRecomputationDelay) {
+            result = _executeSetRecomputationDelay(data);
         } else if (motionType == MotionType.ApproveTokens) {
             result = _executeApproveTokens(data);
         } else if (motionType == MotionType.DisapproveTokens) {
@@ -273,6 +276,7 @@ contract Board is BytesHandler {
     {
         address fundAddress = _extractAddress(data, 0);
         fund = AkropolisFund(fundAddress);
+        emit SetFund(fundAddress);
         return true;
     }
 
@@ -337,6 +341,13 @@ contract Board is BytesHandler {
         returns (bool)
     {
         return fund.resetTimeLock(_extractAddress(data, 0));
+    }
+
+    function _executeSetRecomputationDelay(bytes data)
+        internal
+        returns (bool)
+    {
+        return fund.setRecomputationDelay(_extractUint(data, 0));
     }
 
     function _executeApproveTokens(bytes data)
@@ -534,4 +545,5 @@ contract Board is BytesHandler {
     event MotionExecutionFailed(uint indexed motionID);
     event MotionCancelled(uint indexed motionID);
     event MotionExpired(uint indexed motionID);
+    event SetFund(address indexed fund);
 }

@@ -44,6 +44,14 @@ contract FakeFund {
         return true;
     }
 
+    function setRecomputationDelay(uint delay)
+        external
+        returns (bool)
+    {
+        emit SetRecomputationDelay(delay);
+        return true;
+    }
+
     function approveTokens(ERC20Token[] tokens)
         external
         returns (bool)
@@ -65,6 +73,7 @@ contract FakeFund {
     event SetMinimumTerm(uint indexed term);
     event SetDenomination(address indexed token);
     event ResetTimeLock(address indexed user);
+    event SetRecomputationDelay(uint indexed delay);
     event ApproveTokens(ERC20Token[] tokens);
     event DisapproveTokens(ERC20Token[] tokens);
 }
