@@ -23,14 +23,20 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
     struct OraclePermissions {
         bool isOracle;
         bool isUniversal;
-        IterableSet.Set allowed;
-        IterableSet.Set disallowed;
+        IterableSet.Set whitelist;
+        IterableSet.Set blacklist;
     }
 
     constructor() 
         Owned(msg.sender)
         public
     {}
+
+    modifier onlyOracle(address oracle) {
+        OraclePermissions storage permissions = oracles[oracle];
+        require(permissions.isOracle, "Sender is not oracle.");
+        _;
+    }
 
     function isOracle(address oracle) 
         external
@@ -56,8 +62,8 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         OraclePermissions storage permissions = oracles[oracle];
         return (
             permissions.isOracle && // Implies sets are initialised.
-            !permissions.disallowed.contains(token) &&
-            (permissions.isUniversal || permissions.allowed.contains(token))
+            !permissions.blacklist.contains(token) &&
+            (permissions.isUniversal || permissions.whitelist.contains(token))
         );
     }
 
@@ -65,12 +71,61 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         external
         onlyOwner
     {
-        require(!oracles[oracle].isOracle, "Is already an oracle.");
-
         OraclePermissions storage permissions = oracles[oracle];
+        require(!permissions.isOracle, "Sender is already an oracle.");
         permissions.isOracle = true;
-        permissions.allowed.initialise();
-        permissions.disallowed.initialise();
+        permissions.whitelist.initialise();
+        permissions.blacklist.initialise();
+    }
+
+    function makeUniversalOracle(address oracle)
+        external
+        onlyOwner
+        onlyOracle(oracle)
+    {
+        OraclePermissions storage permissions = oracles[oracle];
+        permissions.isUniversal = true;
+    }
+
+    function unmakeUniversalOracle(address oracle)
+        external
+        onlyOwner
+        onlyOracle(oracle)
+    {
+        OraclePermissions storage permissions = oracles[oracle];
+        permissions.isUniversal = false;
+    }
+
+    function addToWhitelist(address oracle, ERC20Token token) 
+        external
+        onlyOwner
+        onlyOracle(oracle)
+    {
+        oracles[oracle].whitelist.add(token);
+    }
+
+    function removeFromWhitelist(address oracle, ERC20Token token) 
+        external
+        onlyOwner
+        onlyOracle(oracle)
+    {
+        oracles[oracle].whitelist.remove(token);
+    }
+
+    function addToBlacklist(address oracle, ERC20Token token) 
+        external
+        onlyOwner
+        onlyOracle(oracle)
+    {
+        oracles[oracle].blacklist.add(token);
+    }
+
+    function removeFromBlacklist(address oracle, ERC20Token token) 
+        external
+        onlyOwner
+        onlyOracle(oracle)
+    {
+        oracles[oracle].blacklist.remove(token);
     }
 
     function removeOracle(address oracle)
@@ -80,8 +135,8 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         OraclePermissions storage permissions = oracles[oracle];
         delete permissions.isOracle;
         delete permissions.isUniversal;
-        permissions.allowed.destroy();
-        permissions.disallowed.destroy();
+        permissions.whitelist.destroy();
+        permissions.blacklist.destroy();
     }
 
     function setDenomination(ERC20Token token)
@@ -99,12 +154,10 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
 
         for (uint i; i < tokens.length; i++) {
             ERC20Token token = tokens[i];
-            PriceData[] storage tokenHistory = history[token];
 
-            // Sender must be approved, and disallow multiple updates per block.
-            if (isOracleFor(msg.sender, token) && tokenHistory[tokenHistory.length - 1].timestamp < now) {
-                tokenHistory.push(PriceData(prices[i], now, msg.sender));
-            }
+            // Sender must be approved for each token they wish to update.
+            require(isOracleFor(msg.sender, token), "Sender is not oracle.");
+            history[token].push(PriceData(prices[i], now, msg.sender));
         }
     }
     
@@ -116,13 +169,28 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         return history[token].length;
     }
 
+    function hasFreshPrice(ERC20Token token, uint requiredFreshness)
+        public
+        view
+        returns (bool)
+    {
+        PriceData[] storage tokenHistory = history[token];
+        uint length = tokenHistory.length;
+        return length > 0 &&
+               now - requiredFreshness < tokenHistory[length-1].timestamp;
+    }
+
     function latestPriceData(ERC20Token token)
         public
         view
         returns (uint price, uint timestamp, address oracle)
     {
         PriceData[] storage tokenHistory = history[token];
-        PriceData storage latest = tokenHistory[tokenHistory.length - 1];
+        uint length = tokenHistory.length;
+        if (length == 0) {
+            return (0, 0, address(0));
+        }
+        PriceData storage latest = tokenHistory[length-1];
         return (latest.price, latest.timestamp, latest.oracle);
     }
 
@@ -131,8 +199,8 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         view
         returns (uint)
     {
-        PriceData[] storage tokenHistory = history[token];
-        return tokenHistory[tokenHistory.length - 1].price;
+        (uint tokenPrice, , ) = latestPriceData(token);
+        return tokenPrice;
     }
 
     function value(ERC20Token token, uint quantity) 
