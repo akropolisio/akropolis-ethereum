@@ -154,13 +154,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _;
     }
 
-    modifier preUpdateFundValueIfTime {
-        if (fundValues[fundValues.length - 1].timestamp < now - recomputationDelay) {
-            _updateFundValue();
-        }   
-        _;
-    }
-
     modifier postUpdateFundValueIfTime {
         _;
         if (fundValues[fundValues.length - 1].timestamp < now - recomputationDelay) {
@@ -416,7 +409,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function updateFundValue()
         public
     {
-        require(msg.sender == owner || msg.sender == manager, "Sender is not fund officer.");
+        require(msg.sender == address(board()) || msg.sender == manager, "Sender is not fund officer.");
         _updateFundValue();
     }
 
@@ -559,7 +552,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _contribute(msg.sender, recipient, token, quantity, expectedShares);
     }
 
-    // U18 - Withdraw from a fund if my timelock has expired
     function withdrawBenefits()
         public
         onlyMember(msg.sender)
