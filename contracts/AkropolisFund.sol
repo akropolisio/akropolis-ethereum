@@ -53,6 +53,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // The frequency at which the fund recomputes its value.
     uint public recomputationDelay = 1 days;
 
+    // Historic price values.
+    FundValue[] public fundValues;
+
     //
     // structs
     //
@@ -101,6 +104,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         string annotation;
     }
 
+    struct FundValue {
+        uint value;
+        uint timestamp;
+    }
+
     //
     // events
     //
@@ -146,8 +154,23 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _;
     }
 
+    modifier preUpdateFundValueIfTime {
+        if (fundValues[fundValues.length - 1].timestamp < now - recomputationDelay) {
+            _updateFundValue();
+        }   
+        _;
+    }
+
+    modifier postUpdateFundValueIfTime {
+        _;
+        if (fundValues[fundValues.length - 1].timestamp < now - recomputationDelay) {
+            _updateFundValue();
+        }   
+    }
+
     constructor(
         Board _board,
+        Ticker _ticker,
         uint _managementFeePerYear,
         uint _minimumTerm,
         ERC20Token _denomination,
@@ -159,7 +182,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         NontransferableShare(_name, _symbol)
         public
     {
-        // Manager is null by default. A new one must be formally approved.
         managementFeePerYear = _managementFeePerYear;
         minimumTerm = _minimumTerm;
         descriptionHash = _descriptionHash;
@@ -171,6 +193,10 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // By default, the denominating asset is an approved investible token.
         denomination = _denomination;
         approvedTokens.add(_denomination);
+
+        ticker = _ticker;
+        _updateFundValue();
+
     }
 
     function setManager(address newManager) 
@@ -381,10 +407,24 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return userDetails[user].lastRecurringContribution;
     }
 
+    function _updateFundValue()
+        internal
+    {
+        fundValues.push(FundValue(fundValue(), now));
+    }
+
+    function updateFundValue()
+        public
+    {
+        require(msg.sender == owner || msg.sender == manager, "Sender is not fund officer.");
+        _updateFundValue();
+    }
+
     function joinFund(uint lockupPeriod, uint recurPayment, uint paymentFreq, uint contribution, uint expectedShares)
         public
         onlyNotMember
         noPendingJoin
+        postUpdateFundValueIfTime
     {
         require(
             lockupPeriod >= minimumTerm,
@@ -413,6 +453,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function acceptRecurringPayment(address user)
         public
+        postUpdateFundValueIfTime
     {
         unimplemented();
     }
@@ -454,6 +495,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function approveJoinRequest(address user)
         public
         onlyManager
+        postUpdateFundValueIfTime
     {
         JoinRequest storage request = joinRequests[user];
 
@@ -505,12 +547,14 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // U6 - Must make a contribution to a fund if already a member
     function makeContribution(ERC20Token token, uint quantity, uint expectedShares)
         public
+        postUpdateFundValueIfTime
     {
         _contribute(msg.sender, msg.sender, token, quantity, expectedShares);
     }
 
     function makeContributionFor(address recipient, ERC20Token token, uint quantity, uint expectedShares)
         public
+        postUpdateFundValueIfTime
     {
         _contribute(msg.sender, recipient, token, quantity, expectedShares);
     }
@@ -519,6 +563,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function withdrawBenefits()
         public
         onlyMember(msg.sender)
+        postUpdateFundValueIfTime
     {
         require(now >= userDetails[msg.sender].unlockTime, "Sender timelock has not yet expired.");
         unimplemented();
@@ -527,6 +572,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function withdrawFees()
         public
         onlyManager
+        postUpdateFundValueIfTime
     {
         unimplemented();
     }
@@ -536,6 +582,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function withdraw(ERC20Token token, address destination, uint quantity, string annotation)
         external
         onlyManager
+        postUpdateFundValueIfTime
         returns (uint)
     {
         // TODO: check the Governor if this withdrawal is permitted.
@@ -549,6 +596,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function approveWithdrawal(ERC20Token token, address spender, uint quantity, string annotation)
         external
         onlyManager
+        postUpdateFundValueIfTime
         returns (uint)
     {
         // TODO: check the Governor if this approval is permitted.
@@ -561,6 +609,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function deposit(ERC20Token token, address depositor, uint quantity, string annotation)
         external
         onlyManager
+        postUpdateFundValueIfTime
         returns (uint)
     {
         // TODO: check the Governor if this deposit is permitted.
@@ -628,8 +677,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (uint)
     {
-        (ERC20Token[] memory toks, uint[] memory bals) = _balances();
-        uint[] memory vals = ticker.values(toks, bals);
+        (, uint[] memory vals) = balanceValues();
 
         uint total;
         for (uint i; i < vals.length; i++) {
