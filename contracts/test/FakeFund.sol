@@ -28,11 +28,11 @@ contract FakeFund {
         return true;
     }
 
-    function setDenominatingAsset(address token)
+    function setDenomination(address token)
         external
         returns (bool)
     {
-        emit SetDenominatingAsset(token);
+        emit SetDenomination(token);
         return true;
     }
 
@@ -63,7 +63,7 @@ contract FakeFund {
     event SetManager(address indexed manager);
     event SetManagementFee(uint indexed fee);
     event SetMinimumTerm(uint indexed term);
-    event SetDenominatingAsset(address indexed token);
+    event SetDenomination(address indexed token);
     event ResetTimeLock(address indexed user);
     event ApproveTokens(ERC20Token[] tokens);
     event DisapproveTokens(ERC20Token[] tokens);

@@ -34,7 +34,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     IterableSet.Set ownedTokens;
 
     // Token in which benefits will be paid.
-    ERC20Token public denominatingAsset;
+    ERC20Token public denomination;
 
     // Token in which joining fee is paid.
     IterableSet.Set members;
@@ -146,7 +146,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         Board _board,
         uint _managementFeePerYear,
         uint _minimumTerm,
-        ERC20Token _denominatingAsset,
+        ERC20Token _denomination,
         string _name,
         string _symbol,
         bytes32 _descriptionHash
@@ -165,8 +165,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         ownedTokens.initialise();
 
         // By default, the denominating asset is an approved investible token.
-        denominatingAsset = _denominatingAsset;
-        approvedTokens.add(denominatingAsset);
+        denomination = _denomination;
+        approvedTokens.add(_denomination);
     }
 
     function setManager(address newManager) 
@@ -205,14 +205,14 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return true;
     }
 
-    function setDenominatingAsset(ERC20Token asset)
+    function setDenomination(ERC20Token token)
         external
         onlyBoard
         returns (bool)
     {
-        approvedTokens.remove(denominatingAsset);
-        approvedTokens.add(asset);
-        denominatingAsset = asset;
+        approvedTokens.remove(denomination);
+        approvedTokens.add(token);
+        denomination = token;
     }
 
     function setDescriptionHash(bytes32 newHash)
@@ -386,7 +386,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         );
 
         require(
-            denominatingAsset.allowance(msg.sender, this) >= contribution,
+            denomination.allowance(msg.sender, this) >= contribution,
             "Insufficient allowance for initial contribution."
         );
 
@@ -460,7 +460,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         uint initialContribution = request.initialContribution;
         if (initialContribution > 0) {
             _contribute(user, user,
-                        denominatingAsset, initialContribution,
+                        denomination, initialContribution,
                         request.expectedShares);
         }
         
