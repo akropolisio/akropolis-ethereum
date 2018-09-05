@@ -500,8 +500,12 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (uint)
     {
+        uint supply = totalSupply;
+        if (supply == 0) {
+            return 0;
+        }
         return safeDiv_mpdec(fundValue(), denominationDecimals,
-                             totalSupply, decimals,
+                             supply, decimals,
                              denominationDecimals);
     }
 
@@ -520,13 +524,27 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (uint)
     {
+        if (tokenQuantity == 0) {
+            return 0;
+        }
         uint tokenVal = ticker.valueAtRate(token, tokenQuantity, denomination);
+        uint supply = totalSupply;
+        if (supply == 0) {
+            // If there are no shares yet, we will hand back a quantity equivalent
+            // to the value they provided us.
+            return tokenVal;
+        }
+
         (uint fundVal, ) = lastFundValue();
+
+        if (fundVal == 0) {
+            return 0; // TODO: Work out what to do in case the fund is worthless.
+        }
         uint fractionOfTotal = safeDiv_mpdec(tokenVal, denominationDecimals,
                                              fundVal, denominationDecimals,
                                              denominationDecimals);
         uint fundDecimals = decimals;
-        return safeMul_mpdec(totalSupply, fundDecimals,
+        return safeMul_mpdec(supply, fundDecimals,
                              fractionOfTotal, denominationDecimals,
                              fundDecimals);
     }
@@ -728,6 +746,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         // TODO: check the Governor if this deposit is permitted.
         require(bytes(annotation).length > 0, "No annotation provided.");
+        // TODO: Check that the depositor is not a user, unless they have explicitly approved a manual deposit.
         require(token.allowance(depositor, this) >= quantity, "Insufficient depositor allowance.");
         uint result = token.transferFrom(depositor, this, quantity) ? 0 : 1;
         _addOwnedTokenIfBalance(token);
