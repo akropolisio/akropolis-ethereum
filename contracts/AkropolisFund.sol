@@ -552,7 +552,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         delete joinRequests[msg.sender];
     }
 
-    function _maybeAddOwnedToken(ERC20Token token)
+    function _addOwnedTokenIfBalance(ERC20Token token)
         internal
     {
         if (!ownedTokens.contains(token)) {
@@ -562,7 +562,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         }
     }
 
-    function _maybeRemoveOwnedToken(ERC20Token token)
+    function _removeOwnedTokenIfNoBalance(ERC20Token token)
         internal
     {
         if (ownedTokens.contains(token)) {
@@ -619,7 +619,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
             token.transferFrom(contributor, this, quantity),
             "Unable to withdraw contribution."
         );
-        _maybeAddOwnedToken(token);
+        _addOwnedTokenIfBalance(token);
         contributions[recipient].push(Contribution(contributor, now, token, quantity));
         _createShares(recipient, expectedShares);
     }
@@ -667,7 +667,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // TODO: check the Governor if this withdrawal is permitted.
         require(bytes(annotation).length > 0, "No annotation provided.");
         uint result = token.transfer(destination, quantity) ? 0 : 1;
-        _maybeRemoveOwnedToken(token);
+        _removeOwnedTokenIfNoBalance(token);
         managementLog.push(LogEntry(LogType.Withdrawal, now, token, quantity, destination, result, annotation));
         return result;
     }
@@ -695,7 +695,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         require(bytes(annotation).length > 0, "No annotation provided.");
         require(token.allowance(depositor, this) >= quantity, "Insufficient depositor allowance.");
         uint result = token.transferFrom(depositor, this, quantity) ? 0 : 1;
-        _maybeAddOwnedToken(token);
+        _addOwnedTokenIfBalance(token);
         managementLog.push(LogEntry(LogType.Deposit, now, token, quantity, depositor, result, annotation));
         return result;
     }
