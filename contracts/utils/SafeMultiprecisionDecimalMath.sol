@@ -124,6 +124,9 @@ contract SafeMultiprecisionDecimalMath {
         internal
         returns (uint)
     {   
+        if (decimalsFrom == decimalsTo) {
+            return x;
+        }
         // The guard allows us to eschew safeSub();
         if (decimalsFrom > decimalsTo) {
             return safeMul(x, unit(decimalsFrom - decimalsTo));
@@ -148,6 +151,11 @@ contract SafeMultiprecisionDecimalMath {
         internal
         returns (uint)
     {
+        if (xDecimals == outDecimals) {
+            return safeDiv(safeMul(x, y), unit(yDecimals));
+        } else if (yDecimals == outDecimals) {
+            return safeDiv(safeMul(x, y), unit(xDecimals));
+        }
         return convertPrecision(safeMul(x, y), xDecimals + yDecimals, outDecimals);
     }
 
@@ -187,6 +195,10 @@ contract SafeMultiprecisionDecimalMath {
         internal
         returns (uint)
     {
+        if (xDecimals == outputDecimals) {
+            return safeDiv(safeMul(x, unit(yDecimals)), y);
+        }
+
         /* Reintroduce the yUnit factor that will be divided out by y. */
         return convertPrecision(safeDiv(safeMul(x, unit(yDecimals)), y), xDecimals, outputDecimals);
     }

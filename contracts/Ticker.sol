@@ -11,8 +11,14 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
     ERC20Token public denomination;
     uint8 public denominationDecimals;
 
-    mapping(address => PriceData[]) history;
+    mapping(address => TokenDetails) details;
     mapping(address => OraclePermissions) oracles;
+
+    struct TokenDetails {
+        bool isInitialised;
+        uint8 decimals;
+        PriceData[] history;
+    }
 
     struct PriceData {
         uint price;
@@ -27,15 +33,24 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         IterableSet.Set blacklist;
     }
 
-    constructor() 
+    constructor(ERC20Token _denomination) 
         Owned(msg.sender)
         public
-    {}
+    {
+        setDenomination(_denomination);
+    }
 
     modifier onlyOracle(address oracle) {
         OraclePermissions storage permissions = oracles[oracle];
         require(permissions.isOracle, "Sender is not oracle.");
         _;
+    }
+
+    function initialiseToken(ERC20Token token)
+        public
+    {
+        details[token].isInitialised = true;
+        details[token].decimals = token.decimals();
     }
 
     function isOracle(address oracle) 
@@ -140,7 +155,7 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
     }
 
     function setDenomination(ERC20Token token)
-        external
+        public
         onlyOwner
     {
         denomination = token;
@@ -157,7 +172,11 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
 
             // Sender must be approved for each token they wish to update.
             require(isOracleFor(msg.sender, token), "Sender is not oracle.");
-            history[token].push(PriceData(prices[i], now, msg.sender));
+            TokenDetails storage tokenDetails = details[token];
+            if (!tokenDetails.isInitialised) {
+                initialiseToken(token);
+            }
+            details[token].history.push(PriceData(prices[i], now, msg.sender));
         }
     }
     
@@ -166,7 +185,15 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         view
         returns (uint)
     {
-        return history[token].length;
+        return details[token].history.length;
+    }
+
+    function isInitialised(ERC20Token token)
+        public
+        view
+        returns (bool)
+    {
+        return details[token].isInitialised;
     }
 
     function hasFreshPrice(ERC20Token token, uint requiredFreshness)
@@ -174,10 +201,10 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         view
         returns (bool)
     {
-        PriceData[] storage tokenHistory = history[token];
-        uint length = tokenHistory.length;
-        return length > 0 &&
-               now - requiredFreshness < tokenHistory[length-1].timestamp;
+        TokenDetails storage tokenDetails = details[token];
+        PriceData[] storage tokenHistory = details[token].history;
+        return tokenDetails.isInitialised &&
+               now - requiredFreshness < tokenHistory[tokenHistory.length-1].timestamp;
     }
 
     function latestPriceData(ERC20Token token)
@@ -185,12 +212,12 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         view
         returns (uint price, uint timestamp, address oracle)
     {
-        PriceData[] storage tokenHistory = history[token];
-        uint length = tokenHistory.length;
-        if (length == 0) {
+        TokenDetails storage tokenDetails = details[token];
+        if (!tokenDetails.isInitialised) {
             return (0, 0, address(0));
         }
-        PriceData storage latest = tokenHistory[length-1];
+        PriceData[] storage tokenHistory = details[token].history;
+        PriceData storage latest = tokenHistory[tokenHistory.length-1];
         return (latest.price, latest.timestamp, latest.oracle);
     }
 
@@ -203,14 +230,97 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         return tokenPrice;
     }
 
+    function _value(uint tokenPrice, uint tokenDecimals, uint quantity)
+        internal
+        view
+        returns (uint)
+    {
+        return safeMul_mpdec(quantity, tokenDecimals,
+                             tokenPrice, denominationDecimals,
+                             denominationDecimals);
+    }
+
     function value(ERC20Token token, uint quantity) 
         public
         view
         returns (uint)
     {
-        return safeMul_mpdec(quantity, token.decimals(),
-                             price(token), denominationDecimals,
-                             denominationDecimals);
+
+        return _value(price(token), details[token].decimals, quantity);
+    }
+
+
+    // Requires quotePrice is non-zero.
+    function _rate(uint basePrice, uint baseDecimals, uint quotePrice, uint quoteDecimals)
+        internal
+        pure
+        returns (uint)
+    {
+        return safeDiv_mpdec(basePrice, baseDecimals,
+                             quotePrice, quoteDecimals,
+                             quoteDecimals);
+    }
+
+    function rate(ERC20Token base, ERC20Token quote)
+        public
+        view
+        returns (uint)
+    {
+        if (quote == denomination) {
+            return price(base);
+        }
+
+        uint quotePrice = price(quote);
+        if (quotePrice == 0) {
+            return 0;
+        }
+
+        uint basePrice = price(base);
+        if (basePrice == 0) {
+            return 0;
+        }
+
+        return _rate(price(base), details[base].decimals, quotePrice, details[quote].decimals);
+    }
+
+    // Assumes quotePrice is non-zero.
+    function _valueAtRate(uint basePrice, uint baseQuantity, uint baseDecimals,
+                          uint quotePrice, uint quoteDecimals)
+        internal
+        pure
+        returns (uint)
+    {
+        uint r = _rate(basePrice, baseDecimals, quotePrice, quoteDecimals);
+        return safeMul_mpdec(baseQuantity, baseDecimals,
+                             r, quoteDecimals,
+                             quoteDecimals);
+    }
+
+    function valueAtRate(ERC20Token base, uint baseQuantity, ERC20Token quote)
+        public
+        view
+        returns (uint)
+    {
+        if (quote == denomination) {
+            return value(base, baseQuantity);
+        }
+
+        if (baseQuantity == 0) {
+            return 0;
+        }
+
+        uint quotePrice = price(quote);
+        if (quotePrice == 0) {
+            return 0;
+        }
+
+        uint basePrice = price(base);
+        if (basePrice == 0) {
+            return 0;
+        }
+
+        return _valueAtRate(basePrice, baseQuantity, details[base].decimals,
+                            quotePrice, details[quote].decimals);
     }
 
     function prices(ERC20Token[] tokens)
@@ -239,14 +349,36 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         return vals;
     }
 
-    function rate(ERC20Token base, ERC20Token quote)
+    function valuesAtRate(ERC20Token[] tokens, uint[] quantities, ERC20Token quote)
         public
         view
-        returns (uint)
+        returns (uint[])
     {
-        uint quoteDecimals = quote.decimals();
-        return safeDiv_mpdec(price(base), base.decimals(),
-                             price(quote), quoteDecimals,
-                             quoteDecimals);
+        if (quote == denomination) {
+            return values(tokens, quantities);
+        }
+
+        uint numTokens = tokens.length;
+        uint[] memory vals = new uint[](numTokens);
+
+        uint quotePrice = price(quote);
+        if (quotePrice == 0) {
+            return vals;
+        }
+        uint quoteDecimals = details[quote].decimals;
+
+        for (uint i; i < numTokens; i++) {
+            ERC20Token base = tokens[i];
+            uint baseQuantity = quantities[i];
+            uint basePrice = price(base);
+
+            if (baseQuantity == 0 || basePrice == 0) {
+                vals[i] = 0;
+            } else {
+                vals[i] = _valueAtRate(basePrice, baseQuantity, details[base].decimals,
+                                       quotePrice, quoteDecimals);
+            }
+        }
+        return vals;
     }
 }
