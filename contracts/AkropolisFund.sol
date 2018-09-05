@@ -394,6 +394,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         onlyManager
     {
         delete joinRequests[user];
+        registry.denyJoinRequest(user);
     }
 
     function cancelJoinRequest(address sender)
@@ -401,7 +402,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         onlyRegistry
         onlyNotMember(sender)
     {
-        delete joinRequests[msg.sender];
+        delete joinRequests[sender];
     }
 
     function approveJoinRequest(address user)

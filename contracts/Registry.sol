@@ -87,7 +87,7 @@ contract Registry is Owned {
     // A user joins a fund by sending a request to join a fund to the registry
     function joinFund(AkropolisFund fund, uint lockupPeriod, ERC20Token token, uint contribution,
                       uint expectedShares)
-        public
+        external 
         onlyRegistered(fund)
     {
         // we need to store some kind of marker here that the sender has sent the 
@@ -101,13 +101,31 @@ contract Registry is Owned {
 
     // A fund sends this to registry after approving the request
     function approveJoinRequest(address user)
-        public
+        external 
         onlyRegistered(msg.sender)
     {
         IterableSet.Set storage requests = userToRequests[user];
         require(requests.contains(msg.sender), "User must have sent a request");
         requests.remove(user);
         userToFunds[user].push(AkropolisFund(msg.sender));
+    }
+
+    function cancelJoinRequest(AkropolisFund fund)
+        external
+    {
+        IterableSet.Set storage requests = userToRequests[msg.sender];
+        require(requests.contains(address(fund)), "User must have sent a request");
+        requests.remove(address(fund));
+        fund.cancelJoinRequest(msg.sender);
+    }
+
+    function denyJoinRequest(address user)
+        external
+        onlyRegistered(msg.sender)
+    {
+        IterableSet.Set storage requests = userToRequests[user];
+        require(requests.contains(msg.sender), "User must have sent a request");
+        requests.remove(msg.sender);
     }
 
     // Not sure about this one
