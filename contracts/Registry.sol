@@ -60,7 +60,6 @@ contract Registry is Owned {
         feeToken = _feeToken;
         emit NewFeeToken(feeToken);
     }
-
     // This function is called by the fund itself!
     function addFund(address payer)
         external 
@@ -128,7 +127,7 @@ contract Registry is Owned {
         requests.remove(msg.sender);
     }
 
-    // Not sure about this one
+    // For the fund to remove itself
     function removeFund()
         external
     {
@@ -137,6 +136,15 @@ contract Registry is Owned {
         Funds.remove(msg.sender);
         emit RemovedFund(AkropolisFund(msg.sender));
     }
+
+    // For the owner to remove a fund
+    function removeFund(AkropolisFund fund) 
+        external
+        onlyOwner
+    {
+        require(Funds.remove(address(fund)), "Fund not registered");
+    }
+
 
     // We should make a more generic way of doing this for other contracts with the same functionality
     function transferFees(address to, uint quantity)
@@ -147,7 +155,6 @@ contract Registry is Owned {
         // Called by the Registry owner to transfer the fee token fees out!
         return feeToken.transfer(to, quantity);
     }
-
 
     function fundSize()
         external 
@@ -164,6 +171,14 @@ contract Registry is Owned {
         returns(address[])
     {
         return Funds.itemList();
+    }
+
+    function userToFundsLength(address user)
+        external
+        view
+        returns(uint)
+    {
+        return userToFunds[user].length;
     }
 
 }
