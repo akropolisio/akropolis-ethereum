@@ -212,6 +212,10 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         view
         returns (uint price, uint timestamp, address oracle)
     {
+        if (token == denomination) {
+            return (unit(denominationDecimals), now, this);
+        }
+
         TokenDetails storage tokenDetails = details[token];
         if (!tokenDetails.isInitialised) {
             return (0, 0, address(0));
@@ -245,7 +249,9 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         view
         returns (uint)
     {
-
+        if (token == denomination) {
+            return quantity;
+        }
         return _value(price(token), details[token].decimals, quantity);
     }
 
