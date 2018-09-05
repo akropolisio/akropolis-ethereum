@@ -20,7 +20,7 @@ contract Registry is Owned {
 
     // List the funds a user is in
     mapping(address => AkropolisFund[]) public userToFunds;
-    mapping(address => IterableSet.Set) userToRequests;
+    mapping(address => IterableSet.Set) internal userToRequests;
 
     event NewFund(AkropolisFund indexed fund);
     event RemovedFund(AkropolisFund indexed fund);
@@ -59,12 +59,15 @@ contract Registry is Owned {
         emit NewFeeToken(feeToken);
     }
 
+    // This function is called by the fund itself!
     function addFund(address payer)
         external 
         returns(bool)
     {
-        // This function is called by the fund itself!
-        // Take the fee, payer must have paid allowance first, this will probably be the person deploying the fund!
+        // Take the fee, payer must have paid allowance first
+        // this will probably be the person deploying the fund!
+        // This is easier than making the fund itself (msg.sender) pay for the fund
+        // because it is called during construction of the fund
         require(
             feeToken.transferFrom(payer, this, joiningFee),
             "Failed to receive fee payment"
@@ -79,8 +82,9 @@ contract Registry is Owned {
         return true;
     }
 
-
-    function joinFund(AkropolisFund fund, uint lockupPeriod, ERC20Token token, uint contribution, uint expectedShares)
+    // A user joins a fund by sending a request to join a fund to the registry
+    function joinFund(AkropolisFund fund, uint lockupPeriod, ERC20Token token, uint contribution,
+                      uint expectedShares)
         public
         onlyRegistered(fund)
     {
@@ -93,6 +97,7 @@ contract Registry is Owned {
         requests.add(fund);
     }
 
+    // A fund sends this to registry after approving the request
     function approveJoinRequest(address user)
         public
         onlyRegistered(msg.sender)
@@ -103,6 +108,7 @@ contract Registry is Owned {
         userToFunds[user].push(AkropolisFund(msg.sender));
     }
 
+    // Not sure about this one
     function removeFund()
         external
     {
@@ -112,6 +118,7 @@ contract Registry is Owned {
         emit RemovedFund(AkropolisFund(msg.sender));
     }
 
+    // We should make a more generic way of doing this for other contracts with the same functionality
     function transferFees(address to, uint quantity)
         external
         onlyOwner

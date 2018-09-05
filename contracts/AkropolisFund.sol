@@ -457,25 +457,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _createShares(recipient, expectedShares);
     }
 
-    function registerSelf(uint fee)
-        external 
-        onlyManager
-        returns (bool)
-    {
-        // Approve Akropolis Token 
-        require(
-            AkropolisToken.approve(address(registry), fee),
-            "Unable to approve registry for fee"
-        );
-        // Add the fund to the registry!
-        require(
-            registry.addFund(),
-            "Failed to add fund to registry"
-        );
-        // If the above didn't revert, then it passed!
-        return true;
-    }
-
     // U6 - Must make a contribution to a fund if already a member
     function makeContribution(ERC20Token token, uint quantity, uint expectedShares)
         public
