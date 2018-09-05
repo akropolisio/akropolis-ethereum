@@ -221,20 +221,14 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return true;
     }
 
-    function _setDenominatingAsset(ERC20Token asset)
-        internal
-    {
-        approvedTokens.remove(denominatingAsset);
-        approvedTokens.add(asset);
-        denominatingAsset = asset;
-    }
-
     function setDenominatingAsset(ERC20Token asset)
         external
         onlyBoard
         returns (bool)
     {
-        _setDenominatingAsset(asset);
+        approvedTokens.remove(denominatingAsset);
+        approvedTokens.add(asset);
+        denominatingAsset = asset;
     }
 
     function setDescriptionHash(bytes32 newHash)
@@ -257,6 +251,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function approveTokens(ERC20Token[] tokens)
       external
       onlyBoard
+      returns (bool)
     {
         for (uint i; i < tokens.length; i++) {
             approvedTokens.add(address(tokens[i]));
@@ -266,6 +261,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function disapproveTokens(ERC20Token[] tokens)
       external
       onlyBoard
+      returns (bool)
     {
         for (uint i; i < tokens.length; i++) {
             approvedTokens.remove(address(tokens[i]));
@@ -533,19 +529,19 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return token.balanceOf(this);
     }
     
-    function approvedBalances()
+    function balances()
         public
         view
-        returns (address[] tokens, uint[] balances)
+        returns (address[] tokens, uint[] tokenBalances)
     {
         uint numTokens = approvedTokens.size();
-        uint[] memory balances = new uint[](numTokens);
+        uint[] memory approvedBalances = new uint[](numTokens);
 
         for (uint i = 0; i < numTokens; i++) {
             ERC20Token token = ERC20Token(approvedTokens.get(i));
-            balances[i] = token.balanceOf(this);
+            approvedBalances[i] = token.balanceOf(this);
         }
 
-        return (approvedTokens.itemList(), balances);
+        return (approvedTokens.itemList(), approvedBalances);
     }
 }

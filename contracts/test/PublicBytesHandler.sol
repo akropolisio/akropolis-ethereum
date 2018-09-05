@@ -14,11 +14,27 @@ contract PublicBytesHandler is BytesHandler {
         return _extractUint(b, offset);
     }
 
+    function extractUints(bytes b, uint n, uint offset)
+        pure
+        public
+        returns (uint[])
+    {
+        return _extractUints(b, n, offset);
+    }
+
     function extractAddress(bytes b, uint offset)
         pure
         public
         returns (address)
     {
         return _extractAddress(b, offset);
+    }
+
+    function extractAddresses(bytes b, uint n, uint offset)
+        pure
+        public
+        returns (address[])
+    {
+        return _extractAddresses(b, n, offset);
     }
 }
