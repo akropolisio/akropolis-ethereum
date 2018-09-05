@@ -149,7 +149,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     modifier postUpdateFundValueIfTime {
         _;
-        _updateFundValueIfTime();
+        _recordFundValueIfTime();
     }
 
     constructor(
@@ -180,7 +180,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         approvedTokens.add(_denomination);
 
         ticker = _ticker;
-        _updateFundValue();
+        _recordFundValue();
 
     }
 
@@ -458,8 +458,17 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return total;
     }
 
-    function _updateFundValue()
-        internal
+    function lastFundValue()
+        public
+        view
+        returns (uint value, uint timestamp)
+    {
+        FundValue storage lastValue = fundValues[fundValues.length-1];
+        return (lastValue.value, lastValue.timestamp);
+    }
+
+    function _recordFundValue()
+        public
         returns (uint)
     {
         uint value = fundValue();
@@ -467,31 +476,52 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return value;
     }
 
-    function updateFundValue()
+    function recordFundValue()
         public
     {
-        require(msg.sender == address(board()) || msg.sender == manager, "Sender is not fund officer.");
-        _updateFundValue();
+        (, uint timestamp) = lastFundValue();
+        require(timestamp < now, "Fund value already recorded too recently.");
+        _recordFundValue();
     }
 
-    function _updateFundValueIfTime()
+    function _recordFundValueIfTime()
         internal
         returns (uint, bool)
     {
-        FundValue storage lastValue = fundValues[fundValues.length-1];
-        if (lastValue.timestamp < now - recomputationDelay) {
-            return (_updateFundValue(), true);
+        (uint value, uint timestamp) = lastFundValue();
+        if (timestamp < now - recomputationDelay) {
+            return (_recordFundValue(), true);
         }
-        return (lastValue.value, false);
+        return (value, false);
     }
 
-    function equivalentShareValue(ERC20Token token, uint quantity)
+    function shareValue()
         public
         view
         returns (uint)
     {
-        uint tokenVal = ticker.valueAtRate(token, quantity, denomination);
-        uint fundVal = fundValues[fundValues.length-1].value;
+        return safeDiv_mpdec(fundValue(), denominationDecimals,
+                             totalSupply, decimals,
+                             denominationDecimals);
+    }
+
+    function shareValueOf(address user)
+        public
+        view
+        returns (uint)
+    {
+        return safeMul_mpdec(shareValue(), denominationDecimals,
+                             balanceOf[user], decimals,
+                             denominationDecimals);
+    }
+
+    function equivalentShares(ERC20Token token, uint tokenQuantity)
+        public
+        view
+        returns (uint)
+    {
+        uint tokenVal = ticker.valueAtRate(token, tokenQuantity, denomination);
+        (uint fundVal, ) = lastFundValue();
         uint fractionOfTotal = safeDiv_mpdec(tokenVal, denominationDecimals,
                                              fundVal, denominationDecimals,
                                              denominationDecimals);
@@ -499,6 +529,17 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return safeMul_mpdec(totalSupply, fundDecimals,
                              fractionOfTotal, denominationDecimals,
                              fundDecimals);
+    }
+
+    function _validateContribution(address contributor, uint contribution, uint expectedShares)
+        internal
+        view
+    {
+        require(denomination.allowance(contributor, this) >= contribution,
+                "Insufficient allowance for contribution.");
+
+        require(expectedShares <= equivalentShares(denomination, contribution),
+                "Expected shares greater than share value of contribution.");
     }
 
     function joinFund(uint lockupPeriod, uint recurPayment, uint paymentFreq, uint contribution, uint expectedShares)
@@ -510,13 +551,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         require(lockupPeriod >= minimumTerm,
                 "Your lockup period is not long enough.");
 
-        require(denomination.allowance(msg.sender, this) >= contribution,
-                "Insufficient allowance for initial contribution.");
+        _validateContribution(msg.sender, contribution, expectedShares);
 
-        require(expectedShares <= equivalentShareValue(denomination, contribution),
-                "Expected shares greater than share value of contribution.");
-
-        // Store the request on the blockchain
+        // Store the request, pending approval.
         joinRequests[msg.sender] = JoinRequest(
             now,
             lockupPeriod,
@@ -578,22 +615,20 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         postUpdateFundValueIfTime
     {
         JoinRequest storage request = joinRequests[user];
-
-        require(
-            request.pending,
-            "Join request already completed or non-existent."
-        );
+        require(request.pending,
+                "Join request already completed or non-existent.");
 
         // Add them as a member; this must occur before calling _contribute,
         // which enforces that the recipient is a member.
         members.add(user);
         emit newMemberAccepted(user);
+
         // Set their details in the mapping
-        UserDetails storage details = userDetails[user];
-        details.unlockTime = now + request.lockupDuration;
-        details.joinTime = now;
-        details.recurringPayment = request.recurringPayment;
-        details.paymentFrequency = details.paymentFrequency;
+        userDetails[user] = UserDetails(now + request.lockupDuration,
+                                        now,
+                                        request.recurringPayment,
+                                        request.paymentFrequency,
+                                        0);
 
         // Make the actual contribution.
         uint initialContribution = request.initialContribution;
@@ -609,34 +644,34 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     
     // TODO: This should go through a proper request system instead of just issuing
     // the requested shares unchallenged.
+    // However, for now we assume that expectedShares has been pre-validated.
     function _contribute(address contributor, address recipient, ERC20Token token,
-                         uint quantity, uint expectedShares)
+                         uint contribution, uint expectedShares)
         internal
         onlyMember(recipient)
         onlyApprovedToken(token)
     {
-        require(
-            token.transferFrom(contributor, this, quantity),
-            "Unable to withdraw contribution."
-        );
+        require(token.transferFrom(contributor, this, contribution),
+                "Unable to withdraw contribution.");
         _addOwnedTokenIfBalance(token);
-        contributions[recipient].push(Contribution(contributor, now, token, quantity));
+        contributions[recipient].push(Contribution(contributor, now, token, contribution));
         _createShares(recipient, expectedShares);
     }
 
-    // U6 - Must make a contribution to a fund if already a member
-    function makeContribution(ERC20Token token, uint quantity, uint expectedShares)
+    function makeContribution(ERC20Token token, uint contribution, uint expectedShares)
         public
         postUpdateFundValueIfTime
     {
-        _contribute(msg.sender, msg.sender, token, quantity, expectedShares);
+        _validateContribution(msg.sender, contribution, expectedShares);
+        _contribute(msg.sender, msg.sender, token, contribution, expectedShares);
     }
 
-    function makeContributionFor(address recipient, ERC20Token token, uint quantity, uint expectedShares)
+    function makeContributionFor(address recipient, ERC20Token token, uint contribution, uint expectedShares)
         public
         postUpdateFundValueIfTime
     {
-        _contribute(msg.sender, recipient, token, quantity, expectedShares);
+        _validateContribution(msg.sender, contribution, expectedShares);
+        _contribute(msg.sender, recipient, token, contribution, expectedShares);
     }
 
     function withdrawBenefits()
