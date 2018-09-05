@@ -39,7 +39,9 @@ contract Registry is Owned {
     }
 
     modifier onlyRegistered(address fund) {
-        require(Funds.contains(fund), "fund address not registered");
+        // This error is sometimes misleading!!
+        // The sender is sometimes the `fund` and other times it is a parameter!
+        require(Funds.contains(fund), "Fund is not in registry");
         _;
     }
 
@@ -103,7 +105,7 @@ contract Registry is Owned {
         onlyRegistered(msg.sender)
     {
         IterableSet.Set storage requests = userToRequests[user];
-        require(requests.contains(user), "User must have sent a request");
+        require(requests.contains(msg.sender), "User must have sent a request");
         requests.remove(user);
         userToFunds[user].push(AkropolisFund(msg.sender));
     }
