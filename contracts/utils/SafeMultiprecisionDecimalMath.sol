@@ -195,11 +195,10 @@ contract SafeMultiprecisionDecimalMath {
         internal
         returns (uint)
     {
+        /* Reintroduce the yUnit factor that will be divided out by y. */
         if (xDecimals == outputDecimals) {
             return safeDiv(safeMul(x, unit(yDecimals)), y);
         }
-
-        /* Reintroduce the yUnit factor that will be divided out by y. */
         return convertPrecision(safeDiv(safeMul(x, unit(yDecimals)), y), xDecimals, outputDecimals);
     }
 

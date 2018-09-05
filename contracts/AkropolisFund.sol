@@ -35,6 +35,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     // Token in which benefits will be paid.
     ERC20Token public denomination;
+    uint public denominationDecimals;
 
     // Token in which joining fee is paid.
     IterableSet.Set members;
@@ -109,19 +110,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         uint timestamp;
     }
 
-    //
-    // events
-    //
-
     event Withdraw(address indexed user, uint indexed amount);
     event ApproveToken(address indexed ERC20Token);
     event RemoveToken(address indexed ERC20Token);
     event newJoinRequest(address indexed from);
     event newMemberAccepted(address indexed user);
-
-    // 
-    // modifiers
-    //
 
     modifier onlyBoard() {
         require(msg.sender == address(board()), "Sender is not the Board of Directors.");
@@ -156,9 +149,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     modifier postUpdateFundValueIfTime {
         _;
-        if (fundValues[fundValues.length - 1].timestamp < now - recomputationDelay) {
-            _updateFundValue();
-        }   
+        _updateFundValueIfTime();
     }
 
     constructor(
@@ -185,6 +176,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
         // By default, the denominating asset is an approved investible token.
         denomination = _denomination;
+        denominationDecimals = _denomination.decimals();
         approvedTokens.add(_denomination);
 
         ticker = _ticker;
@@ -245,6 +237,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         approvedTokens.remove(denomination);
         approvedTokens.add(token);
         denomination = token;
+        denominationDecimals = token.decimals();
         return true;
     }
 
@@ -400,10 +393,78 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return userDetails[user].lastRecurringContribution;
     }
 
+    function balanceOfToken(ERC20Token token)
+        public
+        view
+        returns (uint)
+    {
+        return token.balanceOf(this);
+    }
+
+    function balanceValueOfToken(ERC20Token token)
+        public
+        view
+        returns (uint)
+    {
+        return ticker.valueAtRate(token, token.balanceOf(this), denomination);
+    }
+
+    function _balances()
+        internal
+        view
+        returns (ERC20Token[] tokens, uint[] tokenBalances)
+    {
+        uint numTokens = ownedTokens.size();
+        uint[] memory bals = new uint[](numTokens);
+        ERC20Token[] memory toks = new ERC20Token[](numTokens);
+
+        for (uint i; i < numTokens; i++) {
+            ERC20Token token = ERC20Token(approvedTokens.get(i));
+            bals[i] = token.balanceOf(this);
+            toks[i] = token;
+        }
+
+        return (toks, bals);
+    }
+
+    function balances()
+        public
+        view
+        returns (ERC20Token[] tokens, uint[] tokenBalances)
+    {
+        return _balances();
+    }
+
+    function balanceValues()
+        public
+        view
+        returns (ERC20Token[] tokens, uint[] tokenValues)
+    {
+        (ERC20Token[] memory toks, uint[] memory bals) = _balances();
+        return (toks, ticker.valuesAtRate(toks, bals, denomination));
+    }
+
+    function fundValue()
+        public
+        view
+        returns (uint)
+    {
+        (, uint[] memory vals) = balanceValues();
+
+        uint total;
+        for (uint i; i < vals.length; i++) {
+            total += vals[i];
+        }
+        return total;
+    }
+
     function _updateFundValue()
         internal
+        returns (uint)
     {
-        fundValues.push(FundValue(fundValue(), now));
+        uint value = fundValue();
+        fundValues.push(FundValue(value, now));
+        return value;
     }
 
     function updateFundValue()
@@ -413,16 +474,47 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _updateFundValue();
     }
 
+    function _updateFundValueIfTime()
+        internal
+        returns (uint, bool)
+    {
+        FundValue storage lastValue = fundValues[fundValues.length-1];
+        if (lastValue.timestamp < now - recomputationDelay) {
+            return (_updateFundValue(), true);
+        }
+        return (lastValue.value, false);
+    }
+
+    function equivalentShareValue(ERC20Token token, uint quantity)
+        public
+        view
+        returns (uint)
+    {
+        uint tokenVal = ticker.valueAtRate(token, quantity, denomination);
+        uint fundVal = fundValues[fundValues.length-1].value;
+        uint fractionOfTotal = safeDiv_mpdec(tokenVal, denominationDecimals,
+                                             fundVal, denominationDecimals,
+                                             denominationDecimals);
+        uint fundDecimals = decimals;
+        return safeMul_mpdec(totalSupply, fundDecimals,
+                             fractionOfTotal, denominationDecimals,
+                             fundDecimals);
+    }
+
     function joinFund(uint lockupPeriod, uint recurPayment, uint paymentFreq, uint contribution, uint expectedShares)
         public
         onlyNotMember
         noPendingJoin
         postUpdateFundValueIfTime
     {
-        require(
-            lockupPeriod >= minimumTerm,
-            "Your lockup period is not long enough."
-        );
+        require(lockupPeriod >= minimumTerm,
+                "Your lockup period is not long enough.");
+
+        require(denomination.allowance(msg.sender, this) >= contribution,
+                "Insufficient allowance for initial contribution.");
+
+        require(expectedShares <= equivalentShareValue(denomination, contribution),
+                "Expected shares greater than share value of contribution.");
 
         // Store the request on the blockchain
         joinRequests[msg.sender] = JoinRequest(
@@ -433,11 +525,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
             contribution,
             expectedShares,
             true
-        );
-
-        require(
-            denomination.allowance(msg.sender, this) >= contribution,
-            "Insufficient allowance for initial contribution."
         );
 
         // Emit an event now that we've passed all the criteria for submitting a request to join
@@ -611,70 +698,5 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _maybeAddOwnedToken(token);
         managementLog.push(LogEntry(LogType.Deposit, now, token, quantity, depositor, result, annotation));
         return result;
-    }
-
-    function balanceOfToken(ERC20Token token)
-        public
-        view
-        returns (uint)
-    {
-        return token.balanceOf(this);
-    }
-
-    function balanceValueOfToken(ERC20Token token)
-        public
-        view
-        returns (uint)
-    {
-        return ticker.value(token, token.balanceOf(this));
-    }
-
-    function _balances()
-        internal
-        view
-        returns (ERC20Token[] tokens, uint[] tokenBalances)
-    {
-        uint numTokens = ownedTokens.size();
-        uint[] memory bals = new uint[](numTokens);
-        ERC20Token[] memory toks = new ERC20Token[](numTokens);
-
-        for (uint i; i < numTokens; i++) {
-            ERC20Token token = ERC20Token(approvedTokens.get(i));
-            bals[i] = token.balanceOf(this);
-            toks[i] = token;
-        }
-
-        return (toks, bals);
-    }
-
-    function balances()
-        public
-        view
-        returns (ERC20Token[] tokens, uint[] tokenBalances)
-    {
-        return _balances();
-    }
-
-    function balanceValues()
-        public
-        view
-        returns (ERC20Token[] tokens, uint[] tokenValues)
-    {
-        (ERC20Token[] memory toks, uint[] memory bals) = _balances();
-        return (toks, ticker.values(toks, bals));
-    }
-
-    function fundValue()
-        public
-        view
-        returns (uint)
-    {
-        (, uint[] memory vals) = balanceValues();
-
-        uint total;
-        for (uint i; i < vals.length; i++) {
-            total += vals[i];
-        }
-        return total;
     }
 }
