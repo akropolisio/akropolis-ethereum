@@ -42,11 +42,15 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     mapping(address => UserDetails) public userDetails;
 
-    // Mapping of candidate members to their join request
+    // Candidate member join requests.
     mapping(address => JoinRequest) public joinRequests;
 
-    // mapping of candidate members to their historic contributions.
+    // Member historic contributions.
     mapping(address => Contribution[]) public contributions;
+
+    // Users can grant the manager permission to directly withdraw.
+    // Type: user => token => quantity.
+    mapping(address => mapping(address => uint)) public managerDebitAllowance;
 
     // Historic record of actions taken by the fund manager.
     LogEntry[] public managementLog;
@@ -131,13 +135,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _;
     }
 
-    modifier onlyNotMember() {
-        require(!members.contains(msg.sender), "Sender is already a member of the fund.");
+    modifier onlyNotMember(address account) {
+        require(!members.contains(account), "Sender is already a member of the fund.");
         _;
     }
 
-    modifier noPendingJoin() {
-        JoinRequest memory request = joinRequests[msg.sender];
+    modifier noPendingJoin(address account) {
+        JoinRequest memory request = joinRequests[account];
         require(!request.pending, "Join request pending.");
         _;
     }
@@ -572,8 +576,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // make contributions in and receive benefits in.
     function joinFund(uint lockupPeriod, uint recurPayment, uint paymentFreq, uint contribution, uint expectedShares)
         public
-        onlyNotMember
-        noPendingJoin
+        onlyNotMember(msg.sender)
+        noPendingJoin(msg.sender)
         postRecordFundValueIfTime
     {
         require(lockupPeriod >= minimumTerm,
@@ -596,6 +600,14 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         emit newJoinRequest(msg.sender);
     }
 
+    function setManagerDebitAllowance(ERC20Token token, uint quantity)
+        public
+        onlyMember(msg.sender)
+    {
+        managerDebitAllowance[msg.sender][address(token)] = quantity;
+    }
+
+
     function acceptRecurringPayment(address user)
         public
         postRecordFundValueIfTime
@@ -612,7 +624,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function cancelJoinRequest()
         public
-        onlyNotMember
+        onlyNotMember(msg.sender)
     {
         delete joinRequests[msg.sender];
     }
@@ -756,7 +768,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         // TODO: check the Governor if this deposit is permitted.
         require(bytes(annotation).length > 0, "No annotation provided.");
-        // TODO: Check that the depositor is not a user, unless they have explicitly approved a manual deposit.
+        require(!joinRequests[depositor].pending, "Depositor cannot be a candidate member.");
+        if (members.contains(depositor)) {
+            require(managerDebitAllowance[depositor][token] >= quantity, "Insufficient manager direct debit allowance.");
+            managerDebitAllowance[depositor][token] -= quantity;
+        }
         require(token.allowance(depositor, this) >= quantity, "Insufficient depositor allowance.");
         uint result = token.transferFrom(depositor, this, quantity) ? 0 : 1;
         _addOwnedTokenIfBalance(token);
