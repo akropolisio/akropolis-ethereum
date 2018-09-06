@@ -52,7 +52,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     LogEntry[] public managementLog;
 
     // The frequency at which the fund recomputes its value.
-    uint public recomputationDelay = 1 days;
+    uint public recomputationDelay = 0;
 
     // Historic price values.
     FundValue[] public fundValues;
@@ -147,7 +147,12 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _;
     }
 
-    modifier postUpdateFundValueIfTime {
+    modifier onlyDenomination(ERC20Token token) {
+        require(token == denomination, "Token is not fund's denominating asset.");
+        _;
+    }
+
+    modifier postRecordFundValueIfTime {
         _;
         _recordFundValueIfTime();
     }
@@ -489,7 +494,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         returns (uint, bool)
     {
         (uint value, uint timestamp) = lastFundValue();
-        if (timestamp < now - recomputationDelay) {
+        if (timestamp <= now - recomputationDelay) {
             return (_recordFundValue(), true);
         }
         return (value, false);
@@ -549,27 +554,32 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
                              fundDecimals);
     }
 
-    function _validateContribution(address contributor, uint contribution, uint expectedShares)
+    function _validateContribution(address contributor, ERC20Token token, uint contribution, uint expectedShares)
         internal
         view
+        onlyDenomination(token) // TODO: allow contributions in any token, with a more robust contribution permission system.
     {
         require(denomination.allowance(contributor, this) >= contribution,
                 "Insufficient allowance for contribution.");
 
-        require(expectedShares <= equivalentShares(denomination, contribution),
+        require(expectedShares <= equivalentShares(token, contribution),
                 "Expected shares greater than share value of contribution.");
     }
 
+    // TODO: Allow this to accept arbitrary contribution tokens.
+    // They will need to go in the join request struct and recurring payment object.
+    // We may need to add separate structures for determining what tokens users may
+    // make contributions in and receive benefits in.
     function joinFund(uint lockupPeriod, uint recurPayment, uint paymentFreq, uint contribution, uint expectedShares)
         public
         onlyNotMember
         noPendingJoin
-        postUpdateFundValueIfTime
+        postRecordFundValueIfTime
     {
         require(lockupPeriod >= minimumTerm,
                 "Your lockup period is not long enough.");
 
-        _validateContribution(msg.sender, contribution, expectedShares);
+        _validateContribution(msg.sender, denomination, contribution, expectedShares);
 
         // Store the request, pending approval.
         joinRequests[msg.sender] = JoinRequest(
@@ -588,7 +598,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function acceptRecurringPayment(address user)
         public
-        postUpdateFundValueIfTime
+        postRecordFundValueIfTime
     {
         unimplemented();
     }
@@ -630,7 +640,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function approveJoinRequest(address user)
         public
         onlyManager
-        postUpdateFundValueIfTime
+        postRecordFundValueIfTime
     {
         JoinRequest storage request = joinRequests[user];
         require(request.pending,
@@ -678,24 +688,24 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function makeContribution(ERC20Token token, uint contribution, uint expectedShares)
         public
-        postUpdateFundValueIfTime
+        postRecordFundValueIfTime
     {
-        _validateContribution(msg.sender, contribution, expectedShares);
+        _validateContribution(msg.sender, token, contribution, expectedShares);
         _contribute(msg.sender, msg.sender, token, contribution, expectedShares);
     }
 
     function makeContributionFor(address recipient, ERC20Token token, uint contribution, uint expectedShares)
         public
-        postUpdateFundValueIfTime
+        postRecordFundValueIfTime
     {
-        _validateContribution(msg.sender, contribution, expectedShares);
+        _validateContribution(msg.sender, token, contribution, expectedShares);
         _contribute(msg.sender, recipient, token, contribution, expectedShares);
     }
 
     function withdrawBenefits()
         public
         onlyMember(msg.sender)
-        postUpdateFundValueIfTime
+        postRecordFundValueIfTime
     {
         require(now >= userDetails[msg.sender].unlockTime, "Sender timelock has not yet expired.");
         unimplemented();
@@ -704,7 +714,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function withdrawFees()
         public
         onlyManager
-        postUpdateFundValueIfTime
+        postRecordFundValueIfTime
     {
         unimplemented();
     }
@@ -714,7 +724,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function withdraw(ERC20Token token, address destination, uint quantity, string annotation)
         external
         onlyManager
-        postUpdateFundValueIfTime
+        postRecordFundValueIfTime
         returns (uint)
     {
         // TODO: check the Governor if this withdrawal is permitted.
@@ -728,7 +738,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function approveWithdrawal(ERC20Token token, address spender, uint quantity, string annotation)
         external
         onlyManager
-        postUpdateFundValueIfTime
+        postRecordFundValueIfTime
         returns (uint)
     {
         // TODO: check the Governor if this approval is permitted.
@@ -741,7 +751,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function deposit(ERC20Token token, address depositor, uint quantity, string annotation)
         external
         onlyManager
-        postUpdateFundValueIfTime
+        postRecordFundValueIfTime
         returns (uint)
     {
         // TODO: check the Governor if this deposit is permitted.
