@@ -4,6 +4,7 @@ pragma experimental "v0.5.0";
 import "./Board.sol";
 import "./Ticker.sol";
 import "./NontransferableShare.sol";
+import "./Registry.sol";
 import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
@@ -18,12 +19,16 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     // The ticker to source price data from
     Ticker public ticker;
+    
+    // The registry that the fund will be shown on
+    Registry public registry;
 
     // Percentage of AUM over one year.
     // TODO: Add a flat rate as well. Maybe also performance fees.
     uint public managementFeePerYear;
     
-    uint public minimumTerm;
+    uint public minimumLockupDuration;
+    uint public minimumPayoutDuration;
 
     bytes32 public descriptionHash;
 
@@ -128,6 +133,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _;
     }
 
+    modifier onlyRegistry() {
+        require(msg.sender == address(registry), "Sender is not the registry.");
+        _;
+    }
+
     modifier onlyManager() {
         require(msg.sender == manager, "Sender is not the fund manager.");
         _;
@@ -139,7 +149,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     }
 
     modifier onlyNotMember(address account) {
-        require(!members.contains(account), "Sender is already a member of the fund.");
+        require(!members.contains(account), "Account is already a member of the fund.");
         _;
     }
 
@@ -167,8 +177,10 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     constructor(
         Board _board,
         Ticker _ticker,
+        Registry _registry,
         uint _managementFeePerYear,
-        uint _minimumTerm,
+        uint _minimumLockupDuration,
+        uint _minimumPayoutDuration,
         ERC20Token _denomination,
         string _name,
         string _symbol,
@@ -179,8 +191,10 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         public
     {
         managementFeePerYear = _managementFeePerYear;
-        minimumTerm = _minimumTerm;
+        minimumLockupDuration = _minimumLockupDuration;
+        minimumPayoutDuration = _minimumPayoutDuration;
         descriptionHash = _descriptionHash;
+        registry = _registry;
 
         members.initialise();
         approvedTokens.initialise();
@@ -194,6 +208,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         ticker = _ticker;
         _recordFundValue();
 
+        // Register the fund on the registry, msg.sender pays for it!
+        registry.addFund(msg.sender);
     }
 
     function setManager(address newManager) 
@@ -201,6 +217,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         onlyBoard
         returns (bool)
     {
+        registry.updateManager(manager, newManager);
         manager = newManager;
         return true;
     }
@@ -223,14 +240,24 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return true;
     }
 
-    function setMinimumTerm(uint newTerm)
+    function setMinimumLockupDuration(uint newLockupDuration)
         external
         onlyBoard
         returns (bool)
     {
-        minimumTerm = newTerm;
+        minimumLockupDuration = newLockupDuration;
         return true;
     }
+
+    function setMinimumPayoutDuration(uint newPayoutDuration)
+        external
+        onlyBoard
+        returns (bool)
+    {
+        minimumLockupDuration = newPayoutDuration;
+        return true;
+    }
+
 
     function setRecomputationDelay(uint delay)
         external
@@ -260,6 +287,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         descriptionHash = newHash;
         return true;
+    }
+
+    function setRegistry(Registry _registry)
+        external
+        onlyRegistry
+    {
+        registry = _registry;
     }
 
     function resetTimeLock(address user)
@@ -629,21 +663,25 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // They will need to go in the join request struct and recurring payment object.
     // We may need to add separate structures for determining what tokens users may
     // make contributions in and receive benefits in.
-    function joinFund(uint lockupPeriod, uint recurPayment, uint paymentFreq, uint payoutDuration, uint contribution, uint expectedShares)
+    function requestMembership(address candidate, uint lockupDuration, uint recurPayment, uint paymentFreq,
+                               uint payoutDuration, uint contribution, uint expectedShares)
         public
-        onlyNotMember(msg.sender)
-        noPendingJoin(msg.sender)
+        onlyRegistry
+        onlyNotMember(candidate)
+        noPendingJoin(candidate)
         postRecordFundValueIfTime
     {
-        require(lockupPeriod >= minimumTerm,
+        require(lockupDuration >= minimumLockupDuration,
                 "Your lockup period is not long enough.");
+        require(payoutDuration >= minimumPayoutDuration,
+                "Your payout period is not long enough.");
 
-        _validateContribution(msg.sender, denomination, contribution, expectedShares);
+        _validateContribution(candidate, denomination, contribution, expectedShares);
 
         // Store the request, pending approval.
-        joinRequests[msg.sender] = JoinRequest(
+        joinRequests[candidate] = JoinRequest(
             now,
-            lockupPeriod,
+            lockupDuration,
             recurPayment,
             paymentFreq,
             payoutDuration,
@@ -653,7 +691,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         );
 
         // Emit an event now that we've passed all the criteria for submitting a request to join
-        emit newJoinRequest(msg.sender);
+        emit newJoinRequest(candidate);
     }
 
     function setManagerDebitAllowance(ERC20Token token, uint quantity)
@@ -662,7 +700,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         managerDebitAllowance[msg.sender][address(token)] = quantity;
     }
-
 
     function acceptRecurringPayment(address user)
         public
@@ -676,13 +713,16 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         onlyManager
     {
         delete joinRequests[user];
+        registry.denyJoinRequest(user);
     }
 
-    function cancelJoinRequest()
+    function cancelJoinRequest(address candidate)
         public
-        onlyNotMember(msg.sender)
+        onlyRegistry
+        onlyNotMember(candidate)
     {
-        delete joinRequests[msg.sender];
+        // This is sent from the registry and already deleted on their end
+        delete joinRequests[candidate];
     }
 
     function _addOwnedTokenIfBalance(ERC20Token token)
@@ -738,6 +778,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         
         // Complete the join request.
         joinRequests[user].pending = false;
+        // Add the user to the fund on the registry
+        registry.approveJoinRequest(user);
     }
 
     function _createLockedShares(address recipient, uint expectedShares) 

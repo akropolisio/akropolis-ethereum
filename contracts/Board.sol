@@ -15,7 +15,8 @@ contract Board is BytesHandler {
         RemoveDirectors,
         SetManager,
         SetManagementFee,
-        SetMinimumTerm,
+        SetMinimumLockupDuration,
+        SetMinimumPayoutDuration,
         SetDenomination,
         ResetTimeLock,
         SetRecomputationDelay,
@@ -244,8 +245,10 @@ contract Board is BytesHandler {
             result = _executeRemoveDirectors(data);
         } else if (motionType == MotionType.SetManagementFee) {
             result = _executeSetManagementFee(data);
-        } else if (motionType == MotionType.SetMinimumTerm) {
-            result = _executeSetMinimumTerm(data);
+        } else if (motionType == MotionType.SetMinimumLockupDuration) {
+            result = _executeSetMinimumLockupDuration(data);
+        } else if (motionType == MotionType.SetMinimumPayoutDuration) {
+            result = _executeSetMinimumPayoutDuration(data);
         } else if (motionType == MotionType.SetDenomination) {
             result = _executeSetDenomination(data);
         } else if (motionType == MotionType.ResetTimeLock) {
@@ -323,11 +326,18 @@ contract Board is BytesHandler {
         return fund.setManagementFee(_extractUint(data, 0));
     }
 
-    function _executeSetMinimumTerm(bytes data)
+    function _executeSetMinimumLockupDuration(bytes data)
         internal
         returns (bool)
     {
-        return fund.setMinimumTerm(_extractUint(data, 0));
+        return fund.setMinimumLockupDuration(_extractUint(data, 0));
+    }
+
+    function _executeSetMinimumPayoutDuration(bytes data)
+        internal
+        returns (bool)
+    {
+        return fund.setMinimumPayoutDuration(_extractUint(data, 0));
     }
 
     function _executeSetDenomination(bytes data)
