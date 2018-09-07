@@ -243,9 +243,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setRegistry(Registry _registry)
         external
-        onlyManager
+        onlyRegistry
     {
-        // In the future there will be som permissions check from the registry.
         registry = _registry;
     }
 
