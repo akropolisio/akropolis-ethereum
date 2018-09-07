@@ -181,6 +181,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         onlyBoard
         returns (bool)
     {
+        registry.updateManager(manager, newManager);
         manager = newManager;
         return true;
     }
