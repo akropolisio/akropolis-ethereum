@@ -19,7 +19,7 @@ contract Registry is Owned {
     IterableSet.Set funds;
 
     // List the funds a user is in
-    mapping(address => AkropolisFund[]) public userFunds;
+    mapping(address => IterableSet.Set) internal _userFunds;
     mapping(address => IterableSet.Set) internal _userRequests;
     mapping(address => IterableSet.Set) internal _managerFunds;
 
@@ -110,7 +110,11 @@ contract Registry is Owned {
         // or it will revert if it hasn't like it should!
         require(requests.contains(msg.sender), "User must have sent a request");
         requests.remove(user);
-        userFunds[user].push(AkropolisFund(msg.sender));
+        IterableSet.Set storage usersFunds = _userFunds[user];
+        if (!usersFunds.isInitialised()) {
+            usersFunds.initialise();
+        }
+        usersFunds.add(msg.sender);
     }
 
     function cancelJoinRequest(AkropolisFund fund)
@@ -199,7 +203,10 @@ contract Registry is Owned {
         view
         returns(uint)
     {
-        return userFunds[user].length;
+        if (_userFunds[user].isInitialised()){
+            return _userFunds[user].size();
+        }
+        return 0;
     }
 
     function userFundsList(address user)
@@ -207,11 +214,7 @@ contract Registry is Owned {
         view
         returns(address[])
     {
-        address[] memory itemlist = new address[](userFunds[user].length);
-        for (uint i = 0; i < userFunds[user].length; i++) {
-            itemlist[i] = userFunds[user][i];
-        }
-        return itemlist;
+        return _userFunds[user].itemList();
     }
 
 }
