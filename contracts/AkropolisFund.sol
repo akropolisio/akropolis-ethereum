@@ -70,6 +70,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         uint lockupDuration;
         uint recurringPayment;
         uint paymentFrequency;
+        uint payoutDuration;
         uint initialContribution;
         uint expectedShares;
         bool pending;
@@ -90,6 +91,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         uint joinTime;
         uint recurringPayment;
         uint paymentFrequency;
+        uint totalUnlockable;
+        uint finalBenefitTime;
         uint lastRecurringContribution;
     }
 
@@ -489,7 +492,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         public
     {
         (, uint timestamp) = lastFundValue();
-        require(timestamp < now, "Fund value already recorded too recently.");
+        require(timestamp < now, "Fund value already recorded.");
         _recordFundValue();
     }
 
@@ -504,8 +507,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return (value, false);
     }
 
-    function shareValue()
-        public
+    function _shareValue(uint fundVal)
+        internal
         view
         returns (uint)
     {
@@ -513,9 +516,54 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         if (supply == 0) {
             return 0;
         }
-        return safeDiv_mpdec(fundValue(), denominationDecimals,
+        uint denomDec = denominationDecimals;
+        return safeDiv_mpdec(fundVal, denomDec,
                              supply, decimals,
-                             denominationDecimals);
+                             denomDec);
+    }
+
+    function shareValue()
+        public
+        view
+        returns (uint)
+    {
+        return _shareValue(fundValue());
+    }
+
+    function lastShareValue()
+        public
+        view
+        returns (uint)
+    {
+        (uint value, ) = lastFundValue();
+        return _shareValue(value);
+    }
+
+    function _shareQuantityValue(uint quantity, uint shareVal)
+        internal
+        view
+        returns (uint)
+    {
+        uint denomDec = denominationDecimals;
+        return safeMul_mpdec(shareVal, denomDec,
+                             quantity, decimals,
+                             denomDec);
+    }
+
+    function shareQuantityValue(uint quantity)
+        public
+        view
+        returns (uint)
+    {
+        return _shareQuantityValue(quantity, shareValue());
+    }
+
+    function lastShareQuantityValue(uint quantity)
+        public
+        view
+        returns (uint)
+    {
+        return _shareQuantityValue(quantity, lastShareValue());
     }
 
     function shareValueOf(address user)
@@ -523,10 +571,17 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (uint)
     {
-        return safeMul_mpdec(shareValue(), denominationDecimals,
-                             balanceOf[user], decimals,
-                             denominationDecimals);
+        return shareQuantityValue(balanceOf[user]);
     }
+
+    function lastShareValueOf(address user)
+        public
+        view
+        returns (uint)
+    {
+        return lastShareQuantityValue(balanceOf[user]);
+    }
+
 
     function equivalentShares(ERC20Token token, uint tokenQuantity)
         public
@@ -574,7 +629,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // They will need to go in the join request struct and recurring payment object.
     // We may need to add separate structures for determining what tokens users may
     // make contributions in and receive benefits in.
-    function joinFund(uint lockupPeriod, uint recurPayment, uint paymentFreq, uint contribution, uint expectedShares)
+    function joinFund(uint lockupPeriod, uint recurPayment, uint paymentFreq, uint payoutDuration, uint contribution, uint expectedShares)
         public
         onlyNotMember(msg.sender)
         noPendingJoin(msg.sender)
@@ -591,6 +646,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
             lockupPeriod,
             recurPayment,
             paymentFreq,
+            payoutDuration,
             contribution,
             expectedShares,
             true
@@ -668,6 +724,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
                                         now,
                                         request.recurringPayment,
                                         request.paymentFrequency,
+                                        0,
+                                        now + request.payoutDuration,
                                         0);
 
         // Make the actual contribution.
@@ -680,6 +738,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         
         // Complete the join request.
         joinRequests[user].pending = false;
+    }
+
+    function _createLockedShares(address recipient, uint expectedShares) 
+        internal
+    {
+        _createShares(recipient, expectedShares);
+        userDetails[recipient].totalUnlockable += expectedShares;
     }
     
     // TODO: This should go through a proper request system instead of just issuing
@@ -695,7 +760,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
                 "Unable to withdraw contribution.");
         _addOwnedTokenIfBalance(token);
         contributions[recipient].push(Contribution(contributor, now, token, contribution));
-        _createShares(recipient, expectedShares);
+        _createLockedShares(recipient, expectedShares);
     }
 
     function makeContribution(ERC20Token token, uint contribution, uint expectedShares)
@@ -714,13 +779,50 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _contribute(msg.sender, recipient, token, contribution, expectedShares);
     }
 
-    function withdrawBenefits()
+    function lockedBenefits(address user)
+        public
+        view
+        returns (uint)
+    {
+        UserDetails storage details = userDetails[user];
+        uint totalUnlockable = details.totalUnlockable;
+        uint userUnlockTime = details.unlockTime;
+        if (now < userUnlockTime) {
+            return totalUnlockable;
+        }
+
+        uint benefitDuration = details.finalBenefitTime - userUnlockTime;
+        if (benefitDuration == 0) {
+            return 0;
+        }
+
+        uint timeSinceUnlock = now - userUnlockTime;
+        uint dec = decimals;
+        uint fractionElapsed = safeDiv_mpdec(intToDec(timeSinceUnlock, dec), dec,
+                                             intToDec(benefitDuration, dec), dec,
+                                             dec);
+        if (fractionElapsed > unit(dec)) {
+            return 0;
+        }
+        return totalUnlockable - safeMul_mpdec(fractionElapsed, dec,
+                                               totalUnlockable, dec,
+                                               dec);
+    }
+
+    function withdrawBenefits(uint shareQuantity)
         public
         onlyMember(msg.sender)
         postRecordFundValueIfTime
+        returns (uint)
     {
-        require(now >= userDetails[msg.sender].unlockTime, "Sender timelock has not yet expired.");
-        unimplemented();
+        uint locked = lockedBenefits(msg.sender);
+        uint balance = balanceOf[msg.sender];
+        uint destroyableShares = safeSub(balance, locked);
+        require(shareQuantity <= destroyableShares, "Insufficient unlockable shares.");
+        balanceOf[msg.sender] -= shareQuantity;
+        uint value = lastShareQuantityValue(shareQuantity);
+        denomination.transfer(msg.sender, value);
+        return value;
     }
 
     function withdrawFees()
