@@ -245,7 +245,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         external
         onlyManager
     {
-        require(registry.canUpgrade(), "Cannot modify registry");
+        // In the future there will be som permissions check from the registry.
         registry = _registry;
     }
 

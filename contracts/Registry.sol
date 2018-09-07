@@ -15,9 +15,6 @@ contract Registry is Owned {
     // The fee cost to join this registry
     uint public joiningFee;
 
-    // Don't let someone change their registry unless the registry says so!
-    bool public canUpgrade;
-
     // Iterable set of funds
     IterableSet.Set funds;
 
@@ -39,7 +36,6 @@ contract Registry is Owned {
     {
         feeToken = _feeToken;
         joiningFee = _fee;
-        canUpgrade = false;
         funds.initialise();
         emit NewFee(joiningFee);
         emit NewFeeToken(feeToken);
@@ -66,14 +62,6 @@ contract Registry is Owned {
     {
         feeToken = _feeToken;
         emit NewFeeToken(feeToken);
-    }
-
-    function AllowUpgrade()
-        external
-        onlyOwner
-    {
-        canUpgrade = true;
-        emit CanUpgrade();
     }
 
     // This function is called by the fund itself!
@@ -162,23 +150,13 @@ contract Registry is Owned {
         emit UpdatedManager(AkropolisFund(msg.sender), oldManager, newManager);
     }
 
-    function managerToFunds(address manager)
+    function managerFunds(address manager)
         external
         view
         returns (address[])
     {
         IterableSet.Set storage managedFunds = _managerFunds[manager];
         return managedFunds.itemList();
-    }
-
-    // For the fund to remove itself
-    function removeFund()
-        external
-    {
-        // Ensure the fund is listed here
-        require(funds.contains(msg.sender), "Fund not registered");
-        funds.remove(msg.sender);
-        emit RemovedFund(AkropolisFund(msg.sender));
     }
 
     // For the owner to remove a fund
@@ -199,7 +177,7 @@ contract Registry is Owned {
         return feeToken.transfer(to, quantity);
     }
 
-    function fundSize()
+    function numFunds()
         external 
         view 
         returns(uint)
@@ -222,6 +200,18 @@ contract Registry is Owned {
         returns(uint)
     {
         return userFunds[user].length;
+    }
+
+    function userFundsList(address user)
+        external
+        view
+        returns(address[])
+    {
+        address[] memory itemlist = new address[](userFunds[user].length);
+        for (uint i = 0; i < userFunds[user].length; i++) {
+            itemlist[i] = userFunds[user][i];
+        }
+        return itemlist;
     }
 
 }
