@@ -241,6 +241,14 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return true;
     }
 
+    function setRegistry(Registry _registry)
+        external
+        onlyManager
+    {
+        require(registry.canUpgrade(), "Cannot modify registry");
+        registry = _registry;
+    }
+
     function resetTimeLock(address user)
         external
         onlyBoard
@@ -342,7 +350,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     }
 
     // U4 - Join a new fund
-    function joinFund(address sender, uint lockupPeriod, ERC20Token token, uint contribution, uint expectedShares)
+    function requestJoin(address sender, uint lockupPeriod, ERC20Token token, uint contribution, uint expectedShares)
         public
         onlyRegistry
         onlyNotMember(sender)
@@ -398,12 +406,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         registry.denyJoinRequest(user);
     }
 
-    function cancelJoinRequest(address sender)
+    function cancelJoinRequest(address candidate)
         public
         onlyRegistry
-        onlyNotMember(sender)
+        onlyNotMember(candidate)
     {
-        delete joinRequests[sender];
+        // This is sent from the registry and already deleted on their end
+        delete joinRequests[candidate];
     }
 
     function approveJoinRequest(address user)

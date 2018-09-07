@@ -15,19 +15,23 @@ contract Registry is Owned {
     // The fee cost to join this registry
     uint public joiningFee;
 
+    // Don't let someone change their registry unless the registry says so!
+    bool public canUpgrade;
+
     // Iterable set of funds
-    IterableSet.Set Funds;
+    IterableSet.Set funds;
 
     // List the funds a user is in
-    mapping(address => AkropolisFund[]) public userToFunds;
-    mapping(address => IterableSet.Set) internal _userToRequests;
-    mapping(address => IterableSet.Set) internal _managerToFunds;
+    mapping(address => AkropolisFund[]) public userFunds;
+    mapping(address => IterableSet.Set) internal _userRequests;
+    mapping(address => IterableSet.Set) internal _managerFunds;
 
     event NewFund(AkropolisFund indexed fund);
     event RemovedFund(AkropolisFund indexed fund);
     event NewFee(uint indexed newFee);
     event NewFeeToken(ERC20Token indexed newFeeToken);
     event UpdatedManager(AkropolisFund indexed fund, address oldManager, address newManager);
+    event CanUpgrade();
 
     constructor(ERC20Token _feeToken, uint _fee)
         Owned(msg.sender)
@@ -35,15 +39,16 @@ contract Registry is Owned {
     {
         feeToken = _feeToken;
         joiningFee = _fee;
-        Funds.initialise();
+        canUpgrade = false;
+        funds.initialise();
         emit NewFee(joiningFee);
         emit NewFeeToken(feeToken);
     }
 
-    modifier onlyRegistered(address fund) {
+    modifier onlyRegisteredFund(address fund) {
         // This error is sometimes misleading!!
         // The sender is sometimes the `fund` and other times it is a parameter!
-        require(Funds.contains(fund), "Fund is not in registry");
+        require(funds.contains(fund), "Fund is not in registry");
         _;
     }
 
@@ -63,10 +68,17 @@ contract Registry is Owned {
         emit NewFeeToken(feeToken);
     }
 
+    function AllowUpgrade()
+        external
+        onlyOwner
+    {
+        canUpgrade = true;
+        emit CanUpgrade();
+    }
+
     // This function is called by the fund itself!
     function addFund(address payer)
         external 
-        returns(bool)
     {
         // Take the fee, payer must have paid allowance first
         // this will probably be the person deploying the fund!
@@ -77,24 +89,23 @@ contract Registry is Owned {
             "Failed to receive fee payment"
         );
         // Ensure the fund isn't already listed here
-        require(!Funds.contains(msg.sender), "Fund already registered");
+        require(!funds.contains(msg.sender), "Fund already registered");
         // Add the fund to the set
-        Funds.add(msg.sender);
+        funds.add(msg.sender);
         // Emit an event for successfully adding a new fund
         emit NewFund(AkropolisFund(msg.sender));
-        // Return true if the above didn't revert
-        return true;
     }
 
     // A user joins a fund by sending a request to join a fund to the registry
-    function joinFund(AkropolisFund fund, uint lockupPeriod, ERC20Token token, uint contribution,
-                      uint expectedShares)
+    function requestJoin(AkropolisFund fund, uint lockupPeriod, ERC20Token token, uint contribution,
+                         uint expectedShares)
         external 
-        onlyRegistered(fund)
+        onlyRegisteredFund(fund)
     {
-        // we need to store some kind of marker here that the sender has sent the 
-        fund.joinFund(msg.sender, lockupPeriod, token, contribution, expectedShares);
-        IterableSet.Set storage requests = _userToRequests[msg.sender];
+        // The following should revert if they have already sent a request or are a member
+        // hence no additional checks are done
+        fund.requestJoin(msg.sender, lockupPeriod, token, contribution, expectedShares);
+        IterableSet.Set storage requests = _userRequests[msg.sender];
         if (!requests.isInitialised()) {
             requests.initialise();
         }
@@ -104,18 +115,22 @@ contract Registry is Owned {
     // A fund sends this to registry after approving the request
     function approveJoinRequest(address user)
         external 
-        onlyRegistered(msg.sender)
+        onlyRegisteredFund(msg.sender)
     {
-        IterableSet.Set storage requests = _userToRequests[user];
+        IterableSet.Set storage requests = _userRequests[user];
+        // We do not need to init this set as it would have already been init'd
+        // or it will revert if it hasn't like it should!
         require(requests.contains(msg.sender), "User must have sent a request");
         requests.remove(user);
-        userToFunds[user].push(AkropolisFund(msg.sender));
+        userFunds[user].push(AkropolisFund(msg.sender));
     }
 
     function cancelJoinRequest(AkropolisFund fund)
         external
     {
-        IterableSet.Set storage requests = _userToRequests[msg.sender];
+        IterableSet.Set storage requests = _userRequests[msg.sender];
+        // Likewise here,  we do not have the init the set as it should have
+        // been inited by request join already
         require(requests.contains(address(fund)), "User must have sent a request");
         requests.remove(address(fund));
         fund.cancelJoinRequest(msg.sender);
@@ -123,23 +138,23 @@ contract Registry is Owned {
 
     function denyJoinRequest(address user)
         external
-        onlyRegistered(msg.sender)
+        onlyRegisteredFund(msg.sender)
     {
-        IterableSet.Set storage requests = _userToRequests[user];
+        IterableSet.Set storage requests = _userRequests[user];
         require(requests.contains(msg.sender), "User must have sent a request");
         requests.remove(msg.sender);
     }
 
     function updateManager(address oldManager, address newManager)
         external
-        onlyRegistered(msg.sender)
+        onlyRegisteredFund(msg.sender)
     {
-        IterableSet.Set storage managedFunds = _managerToFunds[oldManager];
+        IterableSet.Set storage managedFunds = _managerFunds[oldManager];
         // If the manager is being tracked
         if (managedFunds.isInitialised()) {
             managedFunds.remove(msg.sender);
         }
-        IterableSet.Set storage newManagedFunds = _managerToFunds[newManager];
+        IterableSet.Set storage newManagedFunds = _managerFunds[newManager];
         if (!newManagedFunds.isInitialised()) {
             newManagedFunds.initialise();
         }
@@ -152,7 +167,7 @@ contract Registry is Owned {
         view
         returns (address[])
     {
-        IterableSet.Set storage managedFunds = _managerToFunds[manager];
+        IterableSet.Set storage managedFunds = _managerFunds[manager];
         return managedFunds.itemList();
     }
 
@@ -161,8 +176,8 @@ contract Registry is Owned {
         external
     {
         // Ensure the fund is listed here
-        require(Funds.contains(msg.sender), "Fund not registered");
-        Funds.remove(msg.sender);
+        require(funds.contains(msg.sender), "Fund not registered");
+        funds.remove(msg.sender);
         emit RemovedFund(AkropolisFund(msg.sender));
     }
 
@@ -171,7 +186,7 @@ contract Registry is Owned {
         external
         onlyOwner
     {
-        require(Funds.remove(address(fund)), "Fund not registered");
+        require(funds.remove(address(fund)), "Fund not registered");
     }
 
     // We should make a more generic way of doing this for other contracts with the same functionality
@@ -190,7 +205,7 @@ contract Registry is Owned {
         returns(uint)
     {
         // Returns the size of the funds, so we can iterate over the list of funds!
-        return Funds.size();
+        return funds.size();
     }
 
     function fundList()
@@ -198,15 +213,15 @@ contract Registry is Owned {
         view 
         returns(address[])
     {
-        return Funds.itemList();
+        return funds.itemList();
     }
 
-    function userToFundsLength(address user)
+    function userFundsLength(address user)
         external
         view
         returns(uint)
     {
-        return userToFunds[user].length;
+        return userFunds[user].length;
     }
 
 }
