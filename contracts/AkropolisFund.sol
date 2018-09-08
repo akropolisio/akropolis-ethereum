@@ -3,6 +3,7 @@ pragma experimental "v0.5.0";
 
 import "./Board.sol";
 import "./NontransferableShare.sol";
+import "./Registry.sol";
 import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/IterableSet.sol";
@@ -14,6 +15,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     // The pension fund manger
     address public manager;
+
+    // The registry that the fund will be shown on
+    Registry public registry;
 
     // Percentage of AUM over one year.
     // TODO: Add a flat rate as well. Maybe also performance fees.
@@ -101,6 +105,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _;
     }
 
+    modifier onlyRegistry() {
+        require(msg.sender == address(registry), "Sender is not the registry.");
+        _;
+    }
+
     modifier onlyManager() {
         require(msg.sender == manager, "Sender is not the fund manager.");
         _;
@@ -116,13 +125,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _;
     }
 
-    modifier onlyNotMember() {
-        require(!members.contains(msg.sender), "Sender is already a member of the fund.");
+    modifier onlyNotMember(address sender) {
+        require(!members.contains(sender), "Sender is already a member of the fund.");
         _;
     }
 
-    modifier noPendingJoin() {
-        JoinRequest memory request = joinRequests[msg.sender];
+    modifier noPendingJoin(address sender) {
+        JoinRequest memory request = joinRequests[sender];
         require(!request.pending, "Join request pending.");
         _;
     }
@@ -134,6 +143,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     constructor(
         Board _board,
+        Registry _registry,
         uint _managementFeePerYear,
         uint _minimumTerm,
         uint _joiningFee,
@@ -153,6 +163,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         joiningFee = _joiningFee;
         AkropolisToken = _AkropolisToken;
         descriptionHash = _descriptionHash;
+        registry = _registry;
 
         members.initialise();
         approvedTokens.initialise();
@@ -160,6 +171,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // By default, the denominating asset is an approved investible token.
         denominatingAsset = _denominatingAsset;
         approvedTokens.add(denominatingAsset);
+
+        // Register the fund on the registry, msg.sender pays for it!
+        registry.addFund(msg.sender);
     }
 
     function setManager(address newManager) 
@@ -167,6 +181,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         onlyBoard
         returns (bool)
     {
+        registry.updateManager(manager, newManager);
         manager = newManager;
         return true;
     }
@@ -224,6 +239,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         descriptionHash = newHash;
         return true;
+    }
+
+    function setRegistry(Registry _registry)
+        external
+        onlyRegistry
+    {
+        registry = _registry;
     }
 
     function resetTimeLock(address user)
@@ -327,10 +349,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     }
 
     // U4 - Join a new fund
-    function joinFund(uint lockupPeriod, ERC20Token token, uint contribution, uint expectedShares)
+    function requestJoin(address sender, uint lockupPeriod, ERC20Token token, uint contribution, uint expectedShares)
         public
-        onlyNotMember
-        noPendingJoin
+        onlyRegistry
+        onlyNotMember(sender)
+        noPendingJoin(sender)
     {
         require(
             lockupPeriod >= minimumTerm,
@@ -338,7 +361,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         );
 
         // Store the request on the blockchain
-        joinRequests[msg.sender] = JoinRequest(
+        joinRequests[sender] = JoinRequest(
             now + lockupPeriod,
             token,
             contribution,
@@ -348,7 +371,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
         // Check that they have approved us for the fee
         require(
-            AkropolisToken.allowance(msg.sender, this) >= joiningFee,
+            AkropolisToken.allowance(sender, this) >= joiningFee,
             "Joining fee not approved for fund."
         );
 
@@ -366,12 +389,12 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         }
 
         require(
-            token.allowance(msg.sender, this) >= requirement,
+            token.allowance(sender, this) >= requirement,
             "Insufficient allowance for initial contribution."
         );
 
         // Emit an event now that we've passed all the criteria for submitting a request to join
-        emit newJoinRequest(msg.sender);
+        emit newJoinRequest(sender);
     }
 
     function denyJoinRequest(address user)
@@ -379,13 +402,16 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         onlyManager
     {
         delete joinRequests[user];
+        registry.denyJoinRequest(user);
     }
 
-    function cancelJoinRequest()
+    function cancelJoinRequest(address candidate)
         public
-        onlyNotMember
+        onlyRegistry
+        onlyNotMember(candidate)
     {
-        delete joinRequests[msg.sender];
+        // This is sent from the registry and already deleted on their end
+        delete joinRequests[candidate];
     }
 
     function approveJoinRequest(address user)
@@ -417,6 +443,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         
         // Complete the join request.
         joinRequests[user].pending = false;
+        // Add the user to the fund on the registry
+        registry.approveJoinRequest(user);
     }
     
     // TODO: This should go through a proper request system instead of just issuing
