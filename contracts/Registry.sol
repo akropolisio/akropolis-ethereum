@@ -12,8 +12,8 @@ contract Registry is Owned {
     // This will typically be the Akropolis Token
     ERC20Token public feeToken;
 
-    // The fee cost to join this registry
-    uint public joiningFee;
+    // The fee cost to register a new fund.
+    uint public fundRegistrationFee;
 
     // Iterable set of funds
     IterableSet.Set funds;
@@ -25,20 +25,20 @@ contract Registry is Owned {
 
     event NewFund(AkropolisFund indexed fund);
     event RemovedFund(AkropolisFund indexed fund);
-    event NewFee(uint indexed newFee);
+    event NewFundRegistrationFee(uint indexed newFee);
     event NewFeeToken(ERC20Token indexed newFeeToken);
     event UpdatedManager(AkropolisFund indexed fund, address oldManager, address newManager);
     event CanUpgrade();
 
-    constructor(ERC20Token _feeToken, uint _fee)
+    constructor(ERC20Token _feeToken, uint _fundRegistrationFee)
         Owned(msg.sender)
         public 
     {
         feeToken = _feeToken;
-        joiningFee = _fee;
+        fundRegistrationFee = _fundRegistrationFee;
         funds.initialise();
-        emit NewFee(joiningFee);
-        emit NewFeeToken(feeToken);
+        emit NewFundRegistrationFee(_fundRegistrationFee);
+        emit NewFeeToken(_feeToken);
     }
 
     modifier onlyRegisteredFund(address fund) {
@@ -48,12 +48,12 @@ contract Registry is Owned {
         _;
     }
 
-    function setJoiningFee(uint _joiningFee)
+    function setFundRegistrationFee(uint _fundRegistrationFee)
         external
         onlyOwner
     {
-        joiningFee = _joiningFee;
-        emit NewFee(joiningFee);
+        fundRegistrationFee = _fundRegistrationFee;
+        emit NewFundRegistrationFee(_fundRegistrationFee);
     }
 
     function setFeeToken(ERC20Token _feeToken)
@@ -61,7 +61,7 @@ contract Registry is Owned {
         onlyOwner
     {
         feeToken = _feeToken;
-        emit NewFeeToken(feeToken);
+        emit NewFeeToken(_feeToken);
     }
 
     // This function is called by the fund itself during construction.
@@ -73,7 +73,7 @@ contract Registry is Owned {
         // This is easier than making the fund itself (msg.sender) pay for the fund
         // because it is called during construction of the fund
         require(
-            feeToken.transferFrom(payer, this, joiningFee),
+            feeToken.transferFrom(payer, this, fundRegistrationFee),
             "Failed to receive fee payment"
         );
         // Ensure the fund isn't already listed here
@@ -109,6 +109,8 @@ contract Registry is Owned {
         // We do not need to init this set as it would have already been init'd
         // or it will revert if it hasn't like it should!
         require(requests.contains(msg.sender), "User must have sent a request");
+        require(feeToken.balanceOf())
+
         requests.remove(user);
         IterableSet.Set storage usersFunds = _userFunds[user];
         if (!usersFunds.isInitialised()) {
