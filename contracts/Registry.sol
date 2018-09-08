@@ -65,7 +65,7 @@ contract Registry is Owned {
         external
         onlyOwner
     {
-        fundRegistrationFee = _userRegistrationFee;
+        userRegistrationFee = _userRegistrationFee;
         emit NewUserRegistrationFee(_userRegistrationFee);
     }
 
