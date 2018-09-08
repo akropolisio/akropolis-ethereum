@@ -254,10 +254,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         onlyBoard
         returns (bool)
     {
-        minimumLockupDuration = newPayoutDuration;
+        minimumPayoutDuration = newPayoutDuration;
         return true;
     }
-
 
     function setRecomputationDelay(uint delay)
         external
@@ -535,7 +534,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         returns (uint, bool)
     {
         (uint value, uint timestamp) = lastFundValue();
-        if (timestamp <= now - recomputationDelay) {
+        if (timestamp <= safeSub(now, recomputationDelay)) {
             return (_recordFundValue(), true);
         }
         return (value, false);

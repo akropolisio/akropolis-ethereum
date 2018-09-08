@@ -20,11 +20,19 @@ contract FakeFund {
         return true;
     }
 
-    function setMinimumTerm(uint term)
+    function setMinimumLockupDuration(uint term)
         external
         returns (bool)
     {
-        emit SetMinimumTerm(term);
+        emit SetMinimumLockupDuration(term);
+        return true;
+    }
+
+    function setMinimumPayoutDuration(uint term)
+        external
+        returns (bool)
+    {
+        emit SetMinimumPayoutDuration(term);
         return true;
     }
 
@@ -70,7 +78,8 @@ contract FakeFund {
 
     event SetManager(address indexed manager);
     event SetManagementFee(uint indexed fee);
-    event SetMinimumTerm(uint indexed term);
+    event SetMinimumLockupDuration(uint indexed term);
+    event SetMinimumPayoutDuration(uint indexed term);
     event SetDenomination(address indexed token);
     event ResetTimeLock(address indexed user);
     event SetRecomputationDelay(uint indexed delay);
