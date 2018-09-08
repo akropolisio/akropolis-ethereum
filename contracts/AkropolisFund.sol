@@ -893,7 +893,23 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function approveWithdrawal(ERC20Token token, address spender, uint quantity, string annotation)
         external
         onlyManager
-        postRecordFundValueIfTime
+        returns (uint)
+    {
+        return _approveWithdrawal(token, spender, quantity, annotation);
+    }
+
+    function approveUserRegistrationFees(uint numUsers)
+        external
+        onlyManager
+        returns (uint)
+    {
+        return _approveWithdrawal(registry.feeToken(), address(registry),
+                                  safeMul(registry.userRegistrationFee(), numUsers),
+                                  "Approved user registration fees to be spent.");
+    }
+
+    function _approveWithdrawal(ERC20Token token, address spender, uint quantity, string annotation)
+        internal
         returns (uint)
     {
         // TODO: check the Governor if this approval is permitted.

@@ -15,6 +15,9 @@ contract Registry is Owned {
     // The fee cost to register a new fund.
     uint public fundRegistrationFee;
 
+    // The vost for a fund to register a new user.
+    uint public userRegistrationFee;
+
     // Iterable set of funds
     IterableSet.Set funds;
 
@@ -26,16 +29,18 @@ contract Registry is Owned {
     event NewFund(AkropolisFund indexed fund);
     event RemovedFund(AkropolisFund indexed fund);
     event NewFundRegistrationFee(uint indexed newFee);
+    event NewUserRegistrationFee(uint indexed newFee);
     event NewFeeToken(ERC20Token indexed newFeeToken);
-    event UpdatedManager(AkropolisFund indexed fund, address oldManager, address newManager);
+    event UpdatedManager(AkropolisFund indexed fund, address indexed oldManager, address indexed newManager);
     event CanUpgrade();
 
-    constructor(ERC20Token _feeToken, uint _fundRegistrationFee)
+    constructor(ERC20Token _feeToken, uint _fundRegistrationFee, uint _userRegistrationFee)
         Owned(msg.sender)
         public 
     {
         feeToken = _feeToken;
         fundRegistrationFee = _fundRegistrationFee;
+        userRegistrationFee = _userRegistrationFee;
         funds.initialise();
         emit NewFundRegistrationFee(_fundRegistrationFee);
         emit NewFeeToken(_feeToken);
@@ -56,6 +61,14 @@ contract Registry is Owned {
         emit NewFundRegistrationFee(_fundRegistrationFee);
     }
 
+    function setUserRegistrationFee(uint _userRegistrationFee)
+        external
+        onlyOwner
+    {
+        fundRegistrationFee = _userRegistrationFee;
+        emit NewUserRegistrationFee(_userRegistrationFee);
+    }
+
     function setFeeToken(ERC20Token _feeToken)
         external
         onlyOwner
@@ -72,12 +85,14 @@ contract Registry is Owned {
         // this will probably be the person deploying the fund!
         // This is easier than making the fund itself (msg.sender) pay for the fund
         // because it is called during construction of the fund
-        require(
-            feeToken.transferFrom(payer, this, fundRegistrationFee),
-            "Failed to receive fee payment"
-        );
+        uint fee = fundRegistrationFee;
+        if (fee > 0) {
+            require(feeToken.allowance(payer, this) >= fee && feeToken.transferFrom(payer, this, fee),
+                    "Failed to receive fee payment.");
+        }
+
         // Ensure the fund isn't already listed here
-        require(!funds.contains(msg.sender), "Fund already registered");
+        require(!funds.contains(msg.sender), "Fund already registered.");
         // Add the fund to the set
         funds.add(msg.sender);
         // Emit an event for successfully adding a new fund
@@ -109,7 +124,12 @@ contract Registry is Owned {
         // We do not need to init this set as it would have already been init'd
         // or it will revert if it hasn't like it should!
         require(requests.contains(msg.sender), "User must have sent a request");
-        require(feeToken.balanceOf())
+
+        uint fee = userRegistrationFee;
+        if (fee > 0) {
+            require(feeToken.allowance(msg.sender, this) >= fee && feeToken.transferFrom(msg.sender, this, fee),
+                    "Failed to receive fee payment.");
+        }
 
         requests.remove(user);
         IterableSet.Set storage usersFunds = _userFunds[user];
