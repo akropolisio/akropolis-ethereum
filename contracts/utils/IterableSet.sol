@@ -10,7 +10,7 @@ library IterableSet {
     }
 
     modifier assertInitialised(Set storage s) {
-        require(s.isInitialised(), "Set is uninitialised.");
+        require(s.isInitialised(), "Set uninitialised.");
         _;
     }
 
@@ -68,7 +68,7 @@ library IterableSet {
         returns (address)
     {
         uint index = i + 1;
-        require(index < s.items.length, "Set index out of range.");
+        require(index < s.items.length, "Index out of range.");
         return s.items[index];
     }
 
@@ -126,7 +126,7 @@ library IterableSet {
         returns (address)
     {   
         uint len = s.items.length - 1;
-        require(len > 0, "Cannot pop from empty Set.");
+        require(len > 0, "Popped empty set.");
         address item = s.items[len];
 
         delete s.items[len];

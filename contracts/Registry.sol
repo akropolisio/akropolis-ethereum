@@ -16,7 +16,7 @@ contract Registry is Owned {
     uint public fundRegistrationFee;
 
     // The cost for a fund to register a new user.
-    uint public userRegistrationFee;
+    uint public userRegistrationFee; // TODO: rename to membershipFee
 
     // The set of addresses approved to create new funds.
     IterableSet.Set sponsors;
@@ -51,9 +51,7 @@ contract Registry is Owned {
     }
 
     modifier onlyRegisteredFund(address fund) {
-        // This error is sometimes misleading!!
-        // The sender is sometimes the `fund` and other times it is a parameter!
-        require(funds.contains(fund), "Fund is not in registry");
+        require(funds.contains(fund), "Unregistered fund.");
         _;
     }
 
@@ -103,20 +101,31 @@ contract Registry is Owned {
         return sponsors.contains(sponsor);
     }
 
+    function _checkRequestExists(IterableSet.Set storage requests, address fund)
+        internal
+        view
+    {
+        require(requests.contains(fund), "No such request.");
+    }
+
+    function _withdrawFee(address payer, uint fee)
+        internal
+    {
+        if (fee > 0) {
+            require(feeToken.allowance(payer, this) >= fee && feeToken.transferFrom(payer, this, fee),
+                    "Fee transfer failed.");
+        }
+    }
 
     // This function is called by the fund itself during construction.
     function addFund(address payer)
         external 
     {
-        // Take the fee, payer must have paid allowance first
+        // Take the fee, payer must have set the allowance first.
         // this will probably be the person deploying the fund!
         // This is easier than making the fund itself (msg.sender) pay for the fund
         // because it is called during construction of the fund
-        uint fee = fundRegistrationFee;
-        if (fee > 0) {
-            require(feeToken.allowance(payer, this) >= fee && feeToken.transferFrom(payer, this, fee),
-                    "Failed to receive fee payment.");
-        }
+        _withdrawFee(payer, fundRegistrationFee);
 
         // Ensure the fund isn't already listed here
         require(!funds.contains(msg.sender), "Fund already registered.");
@@ -145,19 +154,24 @@ contract Registry is Owned {
         requests.add(fund);
     }
 
+    function cancelMembershipRequest(AkropolisFund fund)
+        external
+    {
+        IterableSet.Set storage requests = _userRequests[msg.sender];
+        _checkRequestExists(requests, fund);
+        requests.remove(address(fund));
+        fund.cancelMembershipRequest(msg.sender);
+    }
+
     // A fund sends this to registry after approving the request
     function approveMembershipRequest(address user)
         external 
         onlyRegisteredFund(msg.sender)
     {
         IterableSet.Set storage requests = _userRequests[user];
-        require(requests.contains(msg.sender), "User must have sent a request");
 
-        uint fee = userRegistrationFee;
-        if (fee > 0) {
-            require(feeToken.allowance(msg.sender, this) >= fee && feeToken.transferFrom(msg.sender, this, fee),
-                    "Failed to receive fee payment.");
-        }
+        _checkRequestExists(requests, msg.sender);
+        _withdrawFee(msg.sender, userRegistrationFee);
 
         requests.remove(user);
         IterableSet.Set storage usersFunds = _userFunds[user];
@@ -167,21 +181,12 @@ contract Registry is Owned {
         usersFunds.add(msg.sender);
     }
 
-    function cancelMembershipRequest(AkropolisFund fund)
-        external
-    {
-        IterableSet.Set storage requests = _userRequests[msg.sender];
-        require(requests.contains(address(fund)), "User must have sent a request");
-        requests.remove(address(fund));
-        fund.cancelMembershipRequest(msg.sender);
-    }
-
     function denyMembershipRequest(address user)
         external
         onlyRegisteredFund(msg.sender)
     {
         IterableSet.Set storage requests = _userRequests[user];
-        require(requests.contains(msg.sender), "User must have sent a request");
+        _checkRequestExists(requests, msg.sender);
         requests.remove(msg.sender);
     }
 
@@ -215,8 +220,9 @@ contract Registry is Owned {
     function removeFund(AkropolisFund fund) 
         external
         onlyOwner
+        onlyRegisteredFund(fund)
     {
-        require(funds.remove(address(fund)), "Fund not registered");
+        funds.remove(address(fund));
     }
 
     // We should make a more generic way of doing this for other contracts with the same functionality
@@ -264,5 +270,4 @@ contract Registry is Owned {
     {
         return _userFunds[user].array();
     }
-
 }

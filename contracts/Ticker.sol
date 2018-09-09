@@ -42,7 +42,7 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
 
     modifier onlyOracle(address oracle) {
         OraclePermissions storage permissions = oracles[oracle];
-        require(permissions.isOracle, "Sender is not oracle.");
+        require(permissions.isOracle, "Not oracle.");
         _;
     }
 
@@ -87,7 +87,7 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
         onlyOwner
     {
         OraclePermissions storage permissions = oracles[oracle];
-        require(!permissions.isOracle, "Sender is already an oracle.");
+        require(!permissions.isOracle, "Already oracle.");
         permissions.isOracle = true;
         permissions.whitelist.initialise();
         permissions.blacklist.initialise();
@@ -165,13 +165,13 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
     function updatePrices(ERC20Token[] tokens, uint[] prices)
         external
     {
-        require(tokens.length == prices.length, "Token and price array lengths differ.");
+        require(tokens.length == prices.length, "Array lengths differ.");
 
         for (uint i; i < tokens.length; i++) {
             ERC20Token token = tokens[i];
 
             // Sender must be approved for each token they wish to update.
-            require(isOracleFor(msg.sender, token), "Sender is not oracle.");
+            require(isOracleFor(msg.sender, token), "Not oracle for token.");
             TokenDetails storage tokenDetails = details[token];
             if (!tokenDetails.isInitialised) {
                 initialiseToken(token);

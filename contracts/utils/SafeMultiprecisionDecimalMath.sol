@@ -62,7 +62,7 @@ contract SafeMultiprecisionDecimalMath {
         internal
         returns (uint)
     {
-        require(x + y >= y, "Safe add failed");
+        require(x + y >= y, "Unsafe add.");
         return x + y;
     }
 
@@ -85,7 +85,7 @@ contract SafeMultiprecisionDecimalMath {
         internal
         returns (uint)
     {
-        require(y <= x, "Safe sub failed");
+        require(y <= x, "Unsafe sub.");
         return x - y;
     }
 
@@ -115,7 +115,7 @@ contract SafeMultiprecisionDecimalMath {
             return 0;
         }
         uint p = x * y;
-        require(p / x == y, "Safe mul failed");
+        require(p / x == y, "Unsafe mul.");
         return p;
     }
 
@@ -181,7 +181,7 @@ contract SafeMultiprecisionDecimalMath {
         /* Although a 0 denominator already throws an exception,
          * it is equivalent to a THROW operation, which consumes all gas.
          * A require statement emits REVERT instead, which remits remaining gas. */
-        require(y != 0, "Denominator cannot be zero");
+        require(y != 0, "Unsafe div.");
         return x / y;
     }
 

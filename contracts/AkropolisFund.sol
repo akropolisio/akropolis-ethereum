@@ -145,43 +145,43 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     event newMemberAccepted(address indexed member);
 
     modifier onlyBoard() {
-        require(msg.sender == address(board()), "Sender is not the Board of Directors.");
+        require(msg.sender == address(board()), "Not board.");
         _;
     }
 
     modifier onlyRegistry() {
-        require(msg.sender == address(registry), "Sender is not the registry.");
+        require(msg.sender == address(registry), "Not registry.");
         _;
     }
 
     modifier onlyManager() {
-        require(msg.sender == manager, "Sender is not the fund manager.");
+        require(msg.sender == manager, "Not manager.");
         _;
     }
 
     modifier onlyMember(address account) {
-        require(members.contains(account), "Sender is not a member of the fund.");
+        require(members.contains(account), "Not member.");
         _;
     }
 
     modifier onlyNotMember(address account) {
-        require(!members.contains(account), "Account is already a member of the fund.");
+        require(!members.contains(account), "Already member.");
         _;
     }
 
     modifier noPendingJoin(address account) {
         MembershipRequest memory request = membershipRequests[account];
-        require(!request.pending, "Membership request pending.");
+        require(!request.pending, "Request exists.");
         _;
     }
 
     modifier onlyApprovedToken(address token) {
-        require(approvedTokens.contains(token), "Token is not approved.");
+        require(approvedTokens.contains(token), "Token not approved.");
         _;
     }
 
     modifier onlyDenomination(ERC20Token token) {
-        require(token == denomination, "Token is not fund's denominating asset.");
+        require(token == denomination, "Token not fund denomination.");
         _;
     }
 
@@ -676,15 +676,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         onlyNotMember(candidate)
         noPendingJoin(candidate)
     {
-        require(lockupDuration >= minimumLockupDuration,
-                "Your lockup period is not long enough.");
-        require(payoutDuration >= minimumPayoutDuration,
-                "Your payout period is not long enough.");
+        require(lockupDuration >= minimumLockupDuration, "Lockup too short.");
+        require(payoutDuration >= minimumPayoutDuration, "Payout too short.");
         if (setupSchedule) {
-            require(scheduleDuration <= lockupDuration + payoutDuration, "Contribution schedule longer than whole plan.");
+            uint totalDuration = safeAdd(lockupDuration, payoutDuration);
+            _validateSchedule(scheduledContribution, scheduleDelay, 0, scheduleDuration, totalDuration);
         }
-        require(expectedShares <= equivalentShares(denomination, initialContribution),
-                "Expected shares greater than share value of contribution.");
+        require(expectedShares <= equivalentShares(denomination, initialContribution), "Expected too many shares.");
 
         // Store the request, pending approval.
         membershipRequests[candidate] = MembershipRequest(
@@ -717,7 +715,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         returns (uint)
     {
         uint termination = schedule.terminationTime;
-        require(now < termination, "Schedule has terminated.");
+        require(now < termination, "Schedule completed.");
         uint periodLength = schedule.contributionDelay;
         uint fullPeriodsToEnd = (termination - now) / periodLength;
         return safeSub(termination, safeMul(fullPeriodsToEnd + 1, periodLength));
@@ -739,7 +737,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
                 msg.sender == beneficiary ||
                 msg.sender == manager ||
                 msg.sender == contributionManager,
-                "Sender not privileged to trigger recurring payment.");
+                "Unauthorised to trigger payment.");
 
         RecurringContributionSchedule storage schedule = contributionSchedule[beneficiary][contributor];
         uint currentPeriodStartTime = _currentSchedulePeriodStartTime(schedule);
@@ -766,28 +764,33 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _permittedContributors[msg.sender].remove(contributor);
     }
 
-    // TODO: Require the beneficiary to have granted the contributor permission first in a contributor => set of beneficiaries mapping.
-    // This additionally allows enumeration of beneficiaries for a recurring payer.
-    function _setContributionSchedule(address contributor, address beneficiary,
-                                      ERC20Token token, uint quantity, uint delay, uint terminationTime)
+    function _validateSchedule(uint quantity, uint delay, uint startTime, uint terminationTime, uint finalBenefitTime)
+        pure
+        internal
+    {
+        require(0 < quantity,
+                "Nonzero contribution required.");
+        require(startTime < terminationTime && terminationTime <= finalBenefitTime,
+                "Schedule must terminate after it begins, before the end of the plan.");
+        // The previous require ensures startTime < terminationTime, so that no safeSub is required here.
+        require(0 < delay && delay <= terminationTime - startTime,
+                "Period length must be nonzero and shorter than schedule.");
+    }
+
+    function _setContributionSchedule(address contributor, address beneficiary, ERC20Token token,
+                                      uint quantity, uint delay, uint startTime, uint terminationTime)
         internal
         onlyDenomination(token) // TODO: allow contributions in any token, with a more robust contribution permission system.
     {
-        require(_permittedContributors[beneficiary].contains(contributor),
-                "Contributor is not permitted for this beneficiary.");
-        require(0 < quantity,
-                "Positive contribution value required.");
-        require(now < terminationTime && terminationTime <= memberDetails[beneficiary].finalBenefitTime,
-                "Schedule must terminate in the future and before the beneficiary's plan ends.");
-        require(0 < delay && delay <= terminationTime - now, // The previous require ensures now < terminationTime.
-                "The period length must be nonzero and not longer than the whole schedule.");
+        require(_permittedContributors[beneficiary].contains(contributor), "Contributor unauthorised.");
+        _validateSchedule(quantity, delay, startTime, terminationTime, memberDetails[beneficiary].finalBenefitTime);
         contributionSchedule[beneficiary][contributor] = RecurringContributionSchedule(token, quantity, delay, terminationTime, 0);
     }
 
     function deleteContributionSchedule(address contributor, address beneficiary)
         external
     {
-        require(msg.sender == contributor || msg.sender == beneficiary, "Sender not authorised.");
+        require(msg.sender == contributor || msg.sender == beneficiary, "Sender unauthorised.");
         delete contributionSchedule[beneficiary][contributor];
     }
 
@@ -795,7 +798,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
                                      uint quantity, uint delay, uint terminationTime)
         external
     {
-        _setContributionSchedule(msg.sender, beneficiary, token, quantity, delay, terminationTime);
+        _setContributionSchedule(msg.sender, beneficiary, token, quantity, delay, now, terminationTime);
     }
 
     function denyMembershipRequest(address candidate)
@@ -841,8 +844,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         postRecordFundValueIfTime
     {
         MembershipRequest storage request = membershipRequests[candidate];
-        require(request.pending,
-                "Membership request already completed or non-existent.");
+        require(request.pending, "Request inactive.");
 
         // Add them as a member; this must occur before calling _contribute,
         // which enforces that the beneficiary is a member.
@@ -860,6 +862,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
             _setContributionSchedule(candidate, candidate, denomination,
                                      request.scheduledContribution,
                                      request.scheduleDelay,
+                                     request.timestamp,
                                      now + request.scheduleDuration);
         }
 
@@ -891,15 +894,15 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         onlyDenomination(token) // TODO: allow contributions in any token, with a more robust contribution permission system.
     {
         require(now < memberDetails[beneficiary].finalBenefitTime,
-                "No contributions after all benefits have unlocked.");
+                "Plan has terminated.");
         require(_permittedContributors[beneficiary].contains(contributor),
-                "Contributor is not permitted for this beneficiary.");
+                "Contributor unauthorised.");
         if (checkShares) {
             require(expectedShares <= equivalentShares(token, contribution),
-                    "Expected shares greater than share value of contribution.");
+                   "Expected too many shares.");
         }
         require(token.transferFrom(contributor, this, contribution),
-                "Unable to withdraw contribution.");
+                "Token transfer failed.");
 
         _addOwnedTokenIfBalance(token);
         contributions[beneficiary].push(Contribution(contributor, now, token, contribution));
@@ -983,7 +986,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         returns (uint)
     {
         // TODO: check the Governor if this withdrawal is permitted.
-        require(bytes(annotation).length > 0, "No annotation provided.");
+        require(bytes(annotation).length > 0, "No annotation.");
         uint result = token.transfer(destination, quantity) ? 0 : 1;
         _removeOwnedTokenIfNoBalance(token);
         managementLog.push(LogEntry(LogType.Withdrawal, now, token, quantity, destination, result, annotation));
@@ -1005,7 +1008,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         return _approveWithdrawal(registry.feeToken(), address(registry),
                                   safeMul(registry.userRegistrationFee(), numUsers),
-                                  "Approved user joining fees to be spent.");
+                                  "Membership fee transfers approved.");
     }
 
     function _approveWithdrawal(ERC20Token token, address spender, uint quantity, string annotation)
@@ -1013,7 +1016,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         returns (uint)
     {
         // TODO: check the Governor if this approval is permitted.
-        require(bytes(annotation).length > 0, "No annotation provided.");
+        require(bytes(annotation).length > 0, "No annotation.");
         uint result = token.approve(spender, quantity) ? 0 : 1;
         managementLog.push(LogEntry(LogType.Approval, now, token, quantity, spender, result, annotation));
         return result;
@@ -1026,10 +1029,10 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         returns (uint)
     {
         // TODO: check the Governor if this deposit is permitted.
-        require(bytes(annotation).length > 0, "No annotation provided.");
-        require(!membershipRequests[depositor].pending, "Depositor cannot be a candidate member.");
+        require(bytes(annotation).length > 0, "No annotation.");
+        require(!membershipRequests[depositor].pending, "Depositor is candidate member.");
         if (members.contains(depositor)) {
-            require(managerDebitAllowance[depositor][token] >= quantity, "Insufficient manager direct debit allowance.");
+            require(managerDebitAllowance[depositor][token] >= quantity, "Insufficient direct debit allowance.");
             managerDebitAllowance[depositor][token] -= quantity;
         }
         require(token.allowance(depositor, this) >= quantity, "Insufficient depositor allowance.");

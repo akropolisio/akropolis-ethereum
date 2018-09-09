@@ -67,7 +67,7 @@ contract Board is BytesHandler {
     }
 
     modifier onlyDirectors() {
-        require(isDirector(msg.sender), "Caller is not a director.");
+        require(isDirector(msg.sender), "Not director.");
         _;
     }
 
@@ -154,7 +154,7 @@ contract Board is BytesHandler {
         view
         returns (Motion storage)
     {
-        require(motionID < motions.length, "Invalid motion ID.");
+        require(motionID < motions.length, "Invalid ID.");
         return motions[motionID];
     }
 
@@ -164,7 +164,7 @@ contract Board is BytesHandler {
         returns (Motion storage)
     {
         Motion storage motion = _getMotion(motionID);
-        require(motion.status == MotionStatus.Active, "Motion is inactive.");
+        require(motion.status == MotionStatus.Active, "Motion inactive.");
         return motion;
     }
 
@@ -185,8 +185,8 @@ contract Board is BytesHandler {
     {
         Motion storage motion = _getMotion(motionID);
         MotionStatus status = motion.status;
-        require(_isVotable(status), "Motion cannot be voted upon.");
-        require(!_motionPastExpiry(motion), "Motion has expired.");
+        require(_isVotable(status), "Motion not votable.");
+        require(!_motionPastExpiry(motion), "Motion expired.");
         return motion;
     }
 
@@ -196,8 +196,8 @@ contract Board is BytesHandler {
         onlyDirectors
         returns (uint)
     {
-        require(data.length > 0, "Data must not be empty.");
-        require(bytes(description).length > 0, "Description must be provided.");
+        require(data.length > 0, "No data.");
+        require(bytes(description).length > 0, "No description.");
         uint id = _pushMotion(motionType, MotionStatus.Active, msg.sender,
                               duration, 0, 0, description, data);
         emit MotionInitiated(id);
@@ -232,7 +232,7 @@ contract Board is BytesHandler {
     {
         Motion storage motion = _getVotableMotion(motionID);
 
-        require(motion.status == MotionStatus.Passed, "Motion must pass to be executed.");
+        require(motion.status == MotionStatus.Passed, "Motion hasn't passed.");
 
         bytes storage data = motion.data;
         MotionType motionType = motion.motionType;
@@ -265,7 +265,7 @@ contract Board is BytesHandler {
         } else if (motionType == MotionType.DisapproveTokens) {
             result = _executeDisapproveTokens(data);
         } else {
-            revert("Unsupported motion type (this should be impossible).");
+            revert("Paradox: unknown motion type.");
         }
 
         if (result) {
@@ -402,8 +402,8 @@ contract Board is BytesHandler {
         onlyDirectors
     {
         Motion storage motion = _getActiveMotion(motionID);
-        require(msg.sender == motion.initiator, "Only the initiator may cancel a motion.");
-        require(motion.votesFor + motion.votesAgainst == 0, "Motions with non-abstention votes cannot be cancelled.");
+        require(msg.sender == motion.initiator, "Not initiator.");
+        require(motion.votesFor + motion.votesAgainst == 0, "Motion has votes.");
         motion.status = MotionStatus.Cancelled;
         emit MotionCancelled(motionID);
     }
@@ -425,21 +425,14 @@ contract Board is BytesHandler {
         return _motionPastExpiry(motion);
     }
 
-    function _expireMotion(Motion storage motion)
-        internal
-    {
-        require(_motionPastExpiry(motion), "Motion has not expired.");
-        motion.status = MotionStatus.Expired;
-        emit MotionExpired(motion.id);
-    }
-
     function expireMotion(uint motionID)
         public
         onlyDirectors
     {
         Motion storage motion = _getMotion(motionID);
-        require(_motionPastExpiry(motion), "Motion has not expired.");
-        _expireMotion(motion);
+        require(_motionPastExpiry(motion), "Motion not expired.");
+        motion.status = MotionStatus.Expired;
+        emit MotionExpired(motion.id);
     }
 
     function motionPasses(uint motionID)
