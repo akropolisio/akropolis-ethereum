@@ -53,6 +53,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // Member historic contributions.
     mapping(address => Contribution[]) public contributions;
 
+    // The addresses permitted to set up a contribution schedule for a given beneficiary.
+    mapping(address => IterableSet.Set) _permittedContributors;
+    // Active contribution schedules. The signature here is (beneficiary => contributor => schedule).
+    mapping(address => mapping(address => RecurringContributionSchedule)) public contributionSchedule;
+
     // Users can grant the manager permission to directly withdraw.
     // Type: user => token => quantity.
     mapping(address => mapping(address => uint)) public managerDebitAllowance;
@@ -73,9 +78,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     struct JoinRequest {
         uint timestamp;
         uint lockupDuration;
-        uint recurringPayment;
-        uint paymentFrequency;
         uint payoutDuration;
+        bool setupSchedule;
+        uint scheduledContribution;
+        uint scheduleDelay;
+        uint scheduleTermination;
         uint initialContribution;
         uint expectedShares;
         bool pending;
@@ -88,17 +95,22 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         uint quantity;
     }
 
+    struct RecurringContributionSchedule {
+        ERC20Token token;
+        uint contributionQuantity;
+        uint contributionDelay;
+        uint terminationTime;
+        uint previousContributionTime;
+    }
+
     // Each user has a time after which they can withdraw benefits. Can be modified by fund directors.
     // In addition they have a payment frequency, and the fund may make withdrawals of 
     // a given quantity from the user's account at no greater than the specified frequency.
     struct UserDetails {
-        uint unlockTime;
         uint joinTime;
-        uint recurringPayment;
-        uint paymentFrequency;
-        uint totalUnlockable;
+        uint unlockTime;
         uint finalBenefitTime;
-        uint lastRecurringContribution;
+        uint totalUnlockable;
     }
 
     enum LogType {
@@ -414,28 +426,20 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return userDetails[user].joinTime;
     }
 
-    function recurringPayment(address user)
+    function permittedContributors(address user)
         public
         view
-        returns (uint)
+        returns (address[])
     {
-        return userDetails[user].recurringPayment;
+        return _permittedContributors[user].array();
     }
 
-    function paymentFrequency(address user)
+    function getContributor(address user, uint index)
         public
         view
-        returns (uint)
+        returns (address)
     {
-        return userDetails[user].paymentFrequency;
-    }
-
-    function lastRecurringContribution(address user)
-        public
-        view
-        returns (uint)
-    {
-        return userDetails[user].lastRecurringContribution;
+        return _permittedContributors[user].get(index);
     }
 
     function balanceOfToken(ERC20Token token)
@@ -646,24 +650,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
                              fundDecimals);
     }
 
-    function _validateContribution(address contributor, ERC20Token token, uint contribution, uint expectedShares)
-        internal
-        view
-        onlyDenomination(token) // TODO: allow contributions in any token, with a more robust contribution permission system.
-    {
-        require(denomination.allowance(contributor, this) >= contribution,
-                "Insufficient allowance for contribution.");
-
-        require(expectedShares <= equivalentShares(token, contribution),
-                "Expected shares greater than share value of contribution.");
-    }
-
     // TODO: Allow this to accept arbitrary contribution tokens.
     // They will need to go in the join request struct and recurring payment object.
     // We may need to add separate structures for determining what tokens users may
     // make contributions in and receive benefits in.
-    function requestMembership(address candidate, uint lockupDuration, uint recurPayment, uint paymentFreq,
-                               uint payoutDuration, uint contribution, uint expectedShares)
+    function requestMembership(address candidate, uint lockupDuration, uint payoutDuration, bool setupSchedule,
+                               uint scheduledContribution, uint scheduleDelay, uint scheduleTermination,
+                               uint initialContribution, uint expectedShares)
         public
         onlyRegistry
         onlyNotMember(candidate)
@@ -675,16 +668,16 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         require(payoutDuration >= minimumPayoutDuration,
                 "Your payout period is not long enough.");
 
-        _validateContribution(candidate, denomination, contribution, expectedShares);
-
         // Store the request, pending approval.
         joinRequests[candidate] = JoinRequest(
             now,
             lockupDuration,
-            recurPayment,
-            paymentFreq,
             payoutDuration,
-            contribution,
+            setupSchedule,
+            scheduledContribution,
+            scheduleDelay,
+            scheduleTermination,
+            initialContribution,
             expectedShares,
             true
         );
@@ -705,6 +698,47 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         postRecordFundValueIfTime
     {
         unimplemented();
+    }
+
+    function permitContributor(address contributor)
+        public
+        onlyMember(msg.sender)
+    {
+        _permittedContributors[msg.sender].add(contributor);
+    }
+
+    function rejectContributor(address contributor)
+        public
+        onlyMember(msg.sender)
+    {
+        _permittedContributors[msg.sender].remove(contributor);
+    }
+
+    // TODO: Require the user to have granted the contributor permission first in a contributor => set of beneficiaries mapping.
+    // This additionally allows enumeration of beneficiaries for a recurring payer.
+    function _setContributionSchedule(address contributor, address beneficiary,
+                                      ERC20Token token, uint quantity, uint delay, uint terminationTime)
+        internal
+        onlyDenomination(token) // TODO: allow contributions in any token, with a more robust contribution permission system.
+    {
+        require(_permittedContributors[beneficiary].contains(contributor), "Contributor is not permitted for this beneficiary.");
+        require(now < terminationTime, "Schedule must terminate in the future.");
+        require(quantity > 0, "Positive contribution value required.");
+        contributionSchedule[beneficiary][contributor] = RecurringContributionSchedule(token, quantity, delay, terminationTime, 0);
+    }
+
+    function deleteContributionSchedule(address contributor, address beneficiary)
+        external
+    {
+        require(msg.sender == contributor || msg.sender == beneficiary, "Sender not authorised.");
+        delete contributionSchedule[beneficiary][contributor];
+    }
+
+    function setContributionSchedule(address beneficiary, ERC20Token token,
+                                     uint quantity, uint delay, uint terminationTime)
+        external
+    {
+        _setContributionSchedule(msg.sender, beneficiary, token, quantity, delay, terminationTime);
     }
 
     function denyJoinRequest(address user)
@@ -754,70 +788,78 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
                 "Join request already completed or non-existent.");
 
         // Add them as a member; this must occur before calling _contribute,
-        // which enforces that the recipient is a member.
+        // which enforces that the beneficiary is a member.
         members.add(user);
-        emit newMemberAccepted(user);
-
-        // Set their details in the mapping
-        userDetails[user] = UserDetails(now + request.lockupDuration,
-                                        now,
-                                        request.recurringPayment,
-                                        request.paymentFrequency,
-                                        0,
+        userDetails[user] = UserDetails(now,
+                                        now + request.lockupDuration,
                                         now + request.payoutDuration,
                                         0);
+        _permittedContributors[user].initialise();
+        _permittedContributors[user].add(user);
+
+        // Set up the user's recurring payment schedule if required.
+        if (request.setupSchedule) {
+            _setContributionSchedule(user, user, denomination,
+                                     request.scheduledContribution,
+                                     request.scheduleDelay,
+                                     request.scheduleTermination);
+        }
 
         // Make the actual contribution.
         uint initialContribution = request.initialContribution;
         if (initialContribution > 0) {
-            _contribute(user, user,
-                        denomination, initialContribution,
-                        request.expectedShares);
+            _contribute(user, user, denomination, initialContribution, request.expectedShares);
         }
         
-        // Complete the join request.
-        joinRequests[user].pending = false;
         // Add the user to the fund on the registry
         registry.approveJoinRequest(user);
+
+        // Complete the join request.
+        joinRequests[user].pending = false;
+        emit newMemberAccepted(user);
     }
 
-    function _createLockedShares(address recipient, uint expectedShares) 
+    function _createLockedShares(address beneficiary, uint expectedShares) 
         internal
     {
-        _createShares(recipient, expectedShares);
-        userDetails[recipient].totalUnlockable += expectedShares;
+        _createShares(beneficiary, expectedShares);
+        userDetails[beneficiary].totalUnlockable += expectedShares;
     }
     
-    // TODO: This should go through a proper request system instead of just issuing
-    // the requested shares unchallenged.
-    // However, for now we assume that expectedShares has been pre-validated.
-    function _contribute(address contributor, address recipient, ERC20Token token,
+    function _contribute(address contributor, address beneficiary, ERC20Token token,
                          uint contribution, uint expectedShares)
         internal
-        onlyMember(recipient)
-        onlyApprovedToken(token)
+        onlyMember(beneficiary)
+        onlyDenomination(token) // TODO: allow contributions in any token, with a more robust contribution permission system.
     {
+        require(_permittedContributors[beneficiary].contains(contributor),
+                "Contributor is not permitted for this beneficiary.");
+        require(denomination.allowance(contributor, this) >= contribution,
+                "Insufficient allowance for contribution.");
+        require(expectedShares <= equivalentShares(token, contribution),
+                "Expected shares greater than share value of contribution.");
+        require(now < userDetails[beneficiary].finalBenefitTime,
+                "No contributions after all benefits have unlocked.");
         require(token.transferFrom(contributor, this, contribution),
                 "Unable to withdraw contribution.");
+
         _addOwnedTokenIfBalance(token);
-        contributions[recipient].push(Contribution(contributor, now, token, contribution));
-        _createLockedShares(recipient, expectedShares);
+        contributions[beneficiary].push(Contribution(contributor, now, token, contribution));
+        _createLockedShares(beneficiary, expectedShares);
     }
 
     function makeContribution(ERC20Token token, uint contribution, uint expectedShares)
         public
         postRecordFundValueIfTime
     {
-        _validateContribution(msg.sender, token, contribution, expectedShares);
         _contribute(msg.sender, msg.sender, token, contribution, expectedShares);
     }
 
-    function makeContributionFor(address recipient, ERC20Token token, uint contribution, uint expectedShares)
+    function makeContributionFor(address beneficiary, ERC20Token token, uint contribution, uint expectedShares)
         public
         postRecordFundValueIfTime
     {
-        _validateContribution(msg.sender, token, contribution, expectedShares);
-        _contribute(msg.sender, recipient, token, contribution, expectedShares);
+        _contribute(msg.sender, beneficiary, token, contribution, expectedShares);
     }
 
     function lockedBenefits(address user)

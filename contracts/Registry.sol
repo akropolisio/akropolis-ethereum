@@ -100,14 +100,17 @@ contract Registry is Owned {
     }
 
     // A user joins a fund by sending a request to join a fund to the registry
-    function requestMembership(AkropolisFund fund, uint lockupDuration, uint recurPayment, uint paymentFreq,
-                               uint payoutDuration, uint contribution, uint expectedShares)
+    function requestMembership(AkropolisFund fund, uint lockupDuration, uint payoutDuration, bool setupSchedule,
+                               uint scheduledContribution, uint scheduleDelay, uint scheduleTermination,
+                               uint initialContribution, uint expectedShares)
         external 
         onlyRegisteredFund(fund)
     {
         // The following should revert if they have already sent a request or are a member
         // hence no additional checks are done
-        fund.requestMembership(msg.sender, lockupDuration, recurPayment, paymentFreq, payoutDuration, contribution, expectedShares);
+        fund.requestMembership(msg.sender, lockupDuration, payoutDuration, setupSchedule,
+                               scheduledContribution, scheduleDelay, scheduleTermination,
+                               initialContribution, expectedShares);
         IterableSet.Set storage requests = _userRequests[msg.sender];
         if (!requests.isInitialised()) {
             requests.initialise();
