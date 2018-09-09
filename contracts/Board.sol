@@ -183,6 +183,7 @@ contract Board is BytesHandler {
         Motion storage motion = _getMotion(motionID);
         MotionStatus status = motion.status;
         require(_isVotable(status), "Motion cannot be voted upon.");
+        require(!_motionPastExpiry(motion), "Motion has expired.");
         return motion;
     }
 
@@ -225,9 +226,8 @@ contract Board is BytesHandler {
         onlyDirectors
         returns (bool)
     {
-        Motion storage motion = _getMotion(motionID);
+        Motion storage motion = _getVotableMotion(motionID);
 
-        require(!_motionPastExpiry(motion), "Motion has expired.");
         require(motion.status == MotionStatus.Passed, "Motion must pass to be executed.");
 
         bytes storage data = motion.data;
@@ -405,7 +405,8 @@ contract Board is BytesHandler {
         public
         onlyDirectors
     {
-        Motion storage motion = _getVotableMotion(motionID);
+        Motion storage motion = _getMotion(motionID);
+        require(_motionPastExpiry(motion), "Motion has not expired.");
         _expireMotion(motion);
     }
 
@@ -447,7 +448,6 @@ contract Board is BytesHandler {
         returns (uint votesFor, uint votesAgainst)
     {
         Motion storage motion = _getVotableMotion(motionID);
-        require(!_motionPastExpiry(motion), "Motion has expired.");
 
         VoteType existingVote = motion.vote[msg.sender];
         if (existingVote == VoteType.Yes) {
@@ -475,7 +475,6 @@ contract Board is BytesHandler {
         returns (uint votesFor, uint votesAgainst)
     {
         Motion storage motion = _getVotableMotion(motionID);
-        require(!_motionPastExpiry(motion), "Motion has expired.");
 
         VoteType existingVote = motion.vote[msg.sender];
         if (existingVote == VoteType.No) {
@@ -502,7 +501,6 @@ contract Board is BytesHandler {
         returns (uint votesFor, uint votesAgainst)
     {
         Motion storage motion = _getVotableMotion(motionID);
-        require(!_motionPastExpiry(motion), "Motion has expired.");
 
         VoteType existingVote = motion.vote[msg.sender];
         motion.vote[msg.sender] = VoteType.Abstain;
