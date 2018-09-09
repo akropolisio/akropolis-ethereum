@@ -99,7 +99,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     struct RecurringContributionSchedule {
         ERC20Token token;
         uint contributionQuantity;
-        uint contributionDelay;
+        uint contributionDelay; // TODO: Rename to periodLength
         uint terminationTime;
         uint previousContributionTime;
     }
@@ -698,11 +698,45 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         managerDebitAllowance[msg.sender][address(token)] = quantity;
     }
 
-    function acceptRecurringPayment(address member)
+    function _currentSchedulePeriodStartTime(RecurringContributionSchedule storage schedule)
+        internal
+        view
+        returns (uint)
+    {
+        uint termination = schedule.terminationTime;
+        require(now < termination, "Schedule has terminated.");
+        uint periodLength = schedule.contributionDelay;
+        uint fullPeriodsToEnd = (termination - now) / periodLength;
+        return safeSub(termination, safeMul(fullPeriodsToEnd + 1, periodLength));
+    }
+
+    function currentSchedulePeriodStartTime(address member, address contributor)
+        public
+        view
+        returns (uint)
+    {
+        return _currentSchedulePeriodStartTime(contributionSchedule[member][contributor]);
+    }
+
+    function makeRecurringPayment(ERC20Token token, address contributor, address beneficiary, uint expectedShares)
         public
         postRecordFundValueIfTime
     {
-        unimplemented();
+        require(msg.sender == contributor ||
+                msg.sender == beneficiary ||
+                msg.sender == address(board()) ||
+                msg.sender == manager,
+                "Sender not privileged to trigger recurring payment.");
+
+        RecurringContributionSchedule storage schedule = contributionSchedule[beneficiary][contributor];
+        uint currentPeriodStartTime = _currentSchedulePeriodStartTime(schedule);
+        require(schedule.previousContributionTime <= currentPeriodStartTime,
+                "Contribution already made this period.");
+        schedule.previousContributionTime = now;
+
+        _contribute(contributor, beneficiary, token,
+                    schedule.contributionQuantity, expectedShares,
+                    true);
     }
 
     function permitContributor(address contributor)
@@ -728,10 +762,12 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         require(_permittedContributors[beneficiary].contains(contributor),
                 "Contributor is not permitted for this beneficiary.");
+        require(0 < quantity,
+                "Positive contribution value required.");
         require(now < terminationTime && terminationTime <= memberDetails[beneficiary].finalBenefitTime,
                 "Schedule must terminate in the future and before the beneficiary's plan ends.");
-        require(quantity > 0,
-                "Positive contribution value required.");
+        require(0 < delay && delay <= terminationTime - now, // The previous require ensures now < terminationTime.
+                "The period length must be nonzero and not longer than the whole schedule.");
         contributionSchedule[beneficiary][contributor] = RecurringContributionSchedule(token, quantity, delay, terminationTime, 0);
     }
 
@@ -843,14 +879,14 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         require(now < memberDetails[beneficiary].finalBenefitTime,
                 "No contributions after all benefits have unlocked.");
-        require(token.transferFrom(contributor, this, contribution),
-                "Unable to withdraw contribution.");
         require(_permittedContributors[beneficiary].contains(contributor),
                 "Contributor is not permitted for this beneficiary.");
         if (checkShares) {
             require(expectedShares <= equivalentShares(token, contribution),
                     "Expected shares greater than share value of contribution.");
         }
+        require(token.transferFrom(contributor, this, contribution),
+                "Unable to withdraw contribution.");
 
         _addOwnedTokenIfBalance(token);
         contributions[beneficiary].push(Contribution(contributor, now, token, contribution));
