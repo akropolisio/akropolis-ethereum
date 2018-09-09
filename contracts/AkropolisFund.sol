@@ -653,9 +653,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // They will need to go in the join request struct and recurring payment object.
     // We may need to add separate structures for determining what tokens users may
     // make contributions in and receive benefits in.
-    function requestMembership(address candidate, uint lockupDuration, uint payoutDuration, bool setupSchedule,
-                               uint scheduledContribution, uint scheduleDelay, uint scheduleDuration,
-                               uint initialContribution, uint expectedShares)
+    function requestMembership(address candidate, uint lockupDuration, uint payoutDuration,
+                               uint initialContribution, uint expectedShares, bool setupSchedule,
+                               uint scheduledContribution, uint scheduleDelay, uint scheduleDuration)
         public
         onlyRegistry
         onlyNotMember(candidate)
