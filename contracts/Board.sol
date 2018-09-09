@@ -228,6 +228,11 @@ contract Board is BytesHandler {
         Motion storage motion = _getMotion(motionID);
         require(motion.status == MotionStatus.Passed, "Motion must pass to be executed.");
 
+        if (_motionPastExpiry(motion)) {
+            _expireMotion(motion);
+            return false;
+        }
+
         bytes storage data = motion.data;
         MotionType motionType = motion.motionType;
         bool result;
