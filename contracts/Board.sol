@@ -165,7 +165,7 @@ contract Board is BytesHandler {
         return motion;
     }
 
-    function _isVotable(MotionStatus status) 
+    function _isVotable(MotionStatus status)
         internal
         pure
         returns (bool)
@@ -183,6 +183,7 @@ contract Board is BytesHandler {
         Motion storage motion = _getMotion(motionID);
         MotionStatus status = motion.status;
         require(_isVotable(status), "Motion cannot be voted upon.");
+        require(!_motionPastExpiry(motion), "Motion has expired.");
         return motion;
     }
 
@@ -225,7 +226,8 @@ contract Board is BytesHandler {
         onlyDirectors
         returns (bool)
     {
-        Motion storage motion = _getMotion(motionID);
+        Motion storage motion = _getVotableMotion(motionID);
+
         require(motion.status == MotionStatus.Passed, "Motion must pass to be executed.");
 
         bytes storage data = motion.data;
@@ -382,7 +384,7 @@ contract Board is BytesHandler {
         return motion.expiry < now;
     }
 
-    function motionPastExpiry(uint motionID) 
+    function motionPastExpiry(uint motionID)
         public
         view
         returns (bool)
@@ -403,11 +405,12 @@ contract Board is BytesHandler {
         public
         onlyDirectors
     {
-        Motion storage motion = _getVotableMotion(motionID);
+        Motion storage motion = _getMotion(motionID);
+        require(_motionPastExpiry(motion), "Motion has not expired.");
         _expireMotion(motion);
     }
 
-    function motionPasses(uint motionID) 
+    function motionPasses(uint motionID)
         public
         view
         returns (bool)
@@ -415,7 +418,7 @@ contract Board is BytesHandler {
         return _motionPasses(_getActiveMotion(motionID));
     }
 
-    function motionFails(uint motionID) 
+    function motionFails(uint motionID)
         public
         view
         returns (bool)
@@ -442,17 +445,13 @@ contract Board is BytesHandler {
     function voteForMotion(uint motionID)
         public
         onlyDirectors
+        returns (uint votesFor, uint votesAgainst)
     {
         Motion storage motion = _getVotableMotion(motionID);
 
-        if (_motionPastExpiry(motion)) {
-            _expireMotion(motion);
-            return;
-        }
-
         VoteType existingVote = motion.vote[msg.sender];
         if (existingVote == VoteType.Yes) {
-            return;
+            return (motion.votesFor, motion.votesAgainst);
         }
 
         motion.vote[msg.sender] = VoteType.Yes;
@@ -460,27 +459,26 @@ contract Board is BytesHandler {
         if (existingVote == VoteType.No) {
             motion.votesAgainst--;
         }
+
         emit VoteCast(motionID, msg.sender, VoteType.Yes);
 
         if (_motionPasses(motion)) {
             motion.status = MotionStatus.Passed;
         }
+
+        return (motion.votesFor, motion.votesAgainst);
     }
 
     function voteAgainstMotion(uint motionID)
         public
         onlyDirectors
+        returns (uint votesFor, uint votesAgainst)
     {
         Motion storage motion = _getVotableMotion(motionID);
 
-        if (_motionPastExpiry(motion)) {
-            _expireMotion(motion);
-            return;
-        }
-
         VoteType existingVote = motion.vote[msg.sender];
         if (existingVote == VoteType.No) {
-            return;
+            return (motion.votesFor, motion.votesAgainst);
         }
 
         motion.vote[msg.sender] = VoteType.No;
@@ -493,24 +491,22 @@ contract Board is BytesHandler {
         if (_motionFails(motion)) {
             motion.status = MotionStatus.Failed;
         }
+
+        return (motion.votesFor, motion.votesAgainst);
     }
 
     function abstainFromMotion(uint motionID)
         public
         onlyDirectors
+        returns (uint votesFor, uint votesAgainst)
     {
         Motion storage motion = _getVotableMotion(motionID);
-
-        if (_motionPastExpiry(motion)) {
-            _expireMotion(motion);
-            return;
-        }
 
         VoteType existingVote = motion.vote[msg.sender];
         motion.vote[msg.sender] = VoteType.Abstain;
         if (existingVote == VoteType.Abstain ||
             existingVote == VoteType.Absent) {
-            return;
+            return (motion.votesFor, motion.votesAgainst);
         }
 
         if (existingVote == VoteType.Yes) {
@@ -523,6 +519,8 @@ contract Board is BytesHandler {
         if (!(_motionPasses(motion) || _motionFails(motion))) {
             motion.status = MotionStatus.Active;
         }
+
+        return (motion.votesFor, motion.votesAgainst);
     }
 
     event Resigned(address indexed director);
