@@ -82,7 +82,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         bool setupSchedule;
         uint scheduledContribution;
         uint scheduleDelay;
-        uint scheduleTermination;
+        uint scheduleDuration;
         uint initialContribution;
         uint expectedShares;
         bool pending;
@@ -619,7 +619,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return lastShareQuantityValue(balanceOf[user]);
     }
 
-
     function equivalentShares(ERC20Token token, uint tokenQuantity)
         public
         view
@@ -655,18 +654,22 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // We may need to add separate structures for determining what tokens users may
     // make contributions in and receive benefits in.
     function requestMembership(address candidate, uint lockupDuration, uint payoutDuration, bool setupSchedule,
-                               uint scheduledContribution, uint scheduleDelay, uint scheduleTermination,
+                               uint scheduledContribution, uint scheduleDelay, uint scheduleDuration,
                                uint initialContribution, uint expectedShares)
         public
         onlyRegistry
         onlyNotMember(candidate)
         noPendingJoin(candidate)
-        postRecordFundValueIfTime
     {
         require(lockupDuration >= minimumLockupDuration,
                 "Your lockup period is not long enough.");
         require(payoutDuration >= minimumPayoutDuration,
                 "Your payout period is not long enough.");
+        if (setupSchedule) {
+            require(scheduleDuration <= lockupDuration + payoutDuration, "Contribution schedule longer than whole plan.");
+        }
+        require(expectedShares <= equivalentShares(denomination, initialContribution),
+                "Expected shares greater than share value of contribution.");
 
         // Store the request, pending approval.
         joinRequests[candidate] = JoinRequest(
@@ -676,7 +679,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
             setupSchedule,
             scheduledContribution,
             scheduleDelay,
-            scheduleTermination,
+            scheduleDuration,
             initialContribution,
             expectedShares,
             true
@@ -721,9 +724,12 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         internal
         onlyDenomination(token) // TODO: allow contributions in any token, with a more robust contribution permission system.
     {
-        require(_permittedContributors[beneficiary].contains(contributor), "Contributor is not permitted for this beneficiary.");
-        require(now < terminationTime, "Schedule must terminate in the future.");
-        require(quantity > 0, "Positive contribution value required.");
+        require(_permittedContributors[beneficiary].contains(contributor),
+                "Contributor is not permitted for this beneficiary.");
+        require(now < terminationTime && terminationTime <= userDetails[beneficiary].finalBenefitTime,
+                "Schedule must terminate in the future and before the beneficiary's plan ends.");
+        require(quantity > 0,
+                "Positive contribution value required.");
         contributionSchedule[beneficiary][contributor] = RecurringContributionSchedule(token, quantity, delay, terminationTime, 0);
     }
 
@@ -790,9 +796,10 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // Add them as a member; this must occur before calling _contribute,
         // which enforces that the beneficiary is a member.
         members.add(user);
+        uint lockupDuration = request.lockupDuration;
         userDetails[user] = UserDetails(now,
-                                        now + request.lockupDuration,
-                                        now + request.payoutDuration,
+                                        now + lockupDuration,
+                                        now + lockupDuration + request.payoutDuration,
                                         0);
         _permittedContributors[user].initialise();
         _permittedContributors[user].add(user);
@@ -802,13 +809,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
             _setContributionSchedule(user, user, denomination,
                                      request.scheduledContribution,
                                      request.scheduleDelay,
-                                     request.scheduleTermination);
+                                     now + request.scheduleDuration);
         }
 
         // Make the actual contribution.
         uint initialContribution = request.initialContribution;
         if (initialContribution > 0) {
-            _contribute(user, user, denomination, initialContribution, request.expectedShares);
+            _contribute(user, user, denomination, initialContribution, request.expectedShares, false);
         }
         
         // Add the user to the fund on the registry
@@ -827,21 +834,21 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     }
     
     function _contribute(address contributor, address beneficiary, ERC20Token token,
-                         uint contribution, uint expectedShares)
+                         uint contribution, uint expectedShares, bool checkShares)
         internal
         onlyMember(beneficiary)
         onlyDenomination(token) // TODO: allow contributions in any token, with a more robust contribution permission system.
     {
-        require(_permittedContributors[beneficiary].contains(contributor),
-                "Contributor is not permitted for this beneficiary.");
-        require(denomination.allowance(contributor, this) >= contribution,
-                "Insufficient allowance for contribution.");
-        require(expectedShares <= equivalentShares(token, contribution),
-                "Expected shares greater than share value of contribution.");
         require(now < userDetails[beneficiary].finalBenefitTime,
                 "No contributions after all benefits have unlocked.");
         require(token.transferFrom(contributor, this, contribution),
                 "Unable to withdraw contribution.");
+        require(_permittedContributors[beneficiary].contains(contributor),
+                "Contributor is not permitted for this beneficiary.");
+        if (checkShares) {
+            require(expectedShares <= equivalentShares(token, contribution),
+                    "Expected shares greater than share value of contribution.");
+        }
 
         _addOwnedTokenIfBalance(token);
         contributions[beneficiary].push(Contribution(contributor, now, token, contribution));
@@ -852,14 +859,14 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         public
         postRecordFundValueIfTime
     {
-        _contribute(msg.sender, msg.sender, token, contribution, expectedShares);
+        _contribute(msg.sender, msg.sender, token, contribution, expectedShares, true);
     }
 
     function makeContributionFor(address beneficiary, ERC20Token token, uint contribution, uint expectedShares)
         public
         postRecordFundValueIfTime
     {
-        _contribute(msg.sender, beneficiary, token, contribution, expectedShares);
+        _contribute(msg.sender, beneficiary, token, contribution, expectedShares, true);
     }
 
     function lockedBenefits(address user)
