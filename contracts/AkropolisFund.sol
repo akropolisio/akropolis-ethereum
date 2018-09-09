@@ -17,6 +17,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // The pension fund manger
     address public manager;
 
+    // An address that can trigger recurring contributions.
+    address public contributionManager;
+
     // The ticker to source price data from
     Ticker public ticker;
     
@@ -234,6 +237,16 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         manager = newManager;
         return true;
     }
+
+    function setContributionManager(address newContributionManager) 
+        external
+        onlyBoard
+        returns (bool)
+    {
+        contributionManager = newContributionManager;
+        return true;
+    }
+
 
     function nominateNewBoard(Board newBoard)
         external
@@ -724,8 +737,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         require(msg.sender == contributor ||
                 msg.sender == beneficiary ||
-                msg.sender == address(board()) ||
-                msg.sender == manager,
+                msg.sender == manager ||
+                msg.sender == contributionManager,
                 "Sender not privileged to trigger recurring payment.");
 
         RecurringContributionSchedule storage schedule = contributionSchedule[beneficiary][contributor];

@@ -14,6 +14,7 @@ contract Board is BytesHandler {
         AddDirectors,
         RemoveDirectors,
         SetManager,
+        SetContributionManager,
         SetManagementFee,
         SetMinimumLockupDuration,
         SetMinimumPayoutDuration,
@@ -241,6 +242,8 @@ contract Board is BytesHandler {
             result = _executeSetFund(data);
         } else if (motionType == MotionType.SetManager) {
             result = _executeSetManager(data);
+        } else if (motionType == MotionType.SetContributionManager) {
+            result = _executeSetContributionManager(data);
         } else if (motionType == MotionType.AddDirectors) {
             result = _executeAddDirectors(data);
         } else if (motionType == MotionType.RemoveDirectors) {
@@ -291,6 +294,13 @@ contract Board is BytesHandler {
         returns (bool)
     {
         return fund.setManager(_extractAddress(data, 0));
+    }
+
+    function _executeSetContributionManager(bytes data)
+        internal
+        returns (bool)
+    {
+        return fund.setContributionManager(_extractAddress(data, 0));
     }
 
     function _executeAddDirectors(bytes data)
