@@ -1025,6 +1025,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function deposit(ERC20Token token, address depositor, uint quantity, string annotation)
         external
         onlyManager
+        onlyApprovedToken(token)
         postRecordFundValueIfTime
         returns (uint)
     {
