@@ -15,8 +15,11 @@ contract Registry is Owned {
     // The fee cost to register a new fund.
     uint public fundRegistrationFee;
 
-    // The vost for a fund to register a new user.
+    // The cost for a fund to register a new user.
     uint public userRegistrationFee;
+
+    // The set of addresses approved to create new funds.
+    IterableSet.Set sponsors;
 
     // Iterable set of funds
     IterableSet.Set funds;
@@ -42,6 +45,7 @@ contract Registry is Owned {
         fundRegistrationFee = _fundRegistrationFee;
         userRegistrationFee = _userRegistrationFee;
         funds.initialise();
+        sponsors.initialise();
         emit NewFundRegistrationFee(_fundRegistrationFee);
         emit NewFeeToken(_feeToken);
     }
@@ -77,6 +81,29 @@ contract Registry is Owned {
         emit NewFeeToken(_feeToken);
     }
 
+    function addSponsor(address sponsor)
+        public
+        onlyOwner
+    {
+        sponsors.add(sponsor);
+    }
+
+    function removeSponsor(address sponsor)
+        public
+        onlyOwner
+    {
+        sponsors.remove(sponsor);
+    }
+
+    function isSponsor(address sponsor)
+        public
+        view
+        returns (bool isApproved)
+    {
+        return sponsors.contains(sponsor);
+    }
+
+
     // This function is called by the fund itself during construction.
     function addFund(address payer)
         external 
@@ -101,7 +128,7 @@ contract Registry is Owned {
 
     // A user joins a fund by sending a request to join a fund to the registry
     function requestMembership(AkropolisFund fund, uint lockupDuration, uint payoutDuration, bool setupSchedule,
-                               uint scheduledContribution, uint scheduleDelay, uint scheduleTermination,
+                               uint scheduledContribution, uint scheduleDelay, uint scheduleDuration,
                                uint initialContribution, uint expectedShares)
         external 
         onlyRegisteredFund(fund)
@@ -109,7 +136,7 @@ contract Registry is Owned {
         // The following should revert if they have already sent a request or are a member
         // hence no additional checks are done
         fund.requestMembership(msg.sender, lockupDuration, payoutDuration, setupSchedule,
-                               scheduledContribution, scheduleDelay, scheduleTermination,
+                               scheduledContribution, scheduleDelay, scheduleDuration,
                                initialContribution, expectedShares);
         IterableSet.Set storage requests = _userRequests[msg.sender];
         if (!requests.isInitialised()) {
