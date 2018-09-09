@@ -126,7 +126,7 @@ contract Registry is Owned {
         emit NewFund(AkropolisFund(msg.sender));
     }
 
-    // A user joins a fund by sending a request to join a fund to the registry
+    // A user joins a fund by sending a membership request to the registry
     function requestMembership(AkropolisFund fund, uint lockupDuration, uint payoutDuration,
                                uint initialContribution, uint expectedShares, bool setupSchedule,
                                uint scheduledContribution, uint scheduleDelay, uint scheduleDuration)
@@ -146,13 +146,11 @@ contract Registry is Owned {
     }
 
     // A fund sends this to registry after approving the request
-    function approveJoinRequest(address user)
+    function approveMembershipRequest(address user)
         external 
         onlyRegisteredFund(msg.sender)
     {
         IterableSet.Set storage requests = _userRequests[user];
-        // We do not need to init this set as it would have already been init'd
-        // or it will revert if it hasn't like it should!
         require(requests.contains(msg.sender), "User must have sent a request");
 
         uint fee = userRegistrationFee;
@@ -169,18 +167,16 @@ contract Registry is Owned {
         usersFunds.add(msg.sender);
     }
 
-    function cancelJoinRequest(AkropolisFund fund)
+    function cancelMembershipRequest(AkropolisFund fund)
         external
     {
         IterableSet.Set storage requests = _userRequests[msg.sender];
-        // Likewise here,  we do not have the init the set as it should have
-        // been inited by request join already
         require(requests.contains(address(fund)), "User must have sent a request");
         requests.remove(address(fund));
-        fund.cancelJoinRequest(msg.sender);
+        fund.cancelMembershipRequest(msg.sender);
     }
 
-    function denyJoinRequest(address user)
+    function denyMembershipRequest(address user)
         external
         onlyRegisteredFund(msg.sender)
     {
