@@ -14,10 +14,13 @@ contract Board is BytesHandler {
         AddDirectors,
         RemoveDirectors,
         SetManager,
+        SetContributionManager,
         SetManagementFee,
-        SetMinimumTerm,
-        SetDenominatingAsset,
+        SetMinimumLockupDuration,
+        SetMinimumPayoutDuration,
+        SetDenomination,
         ResetTimeLock,
+        SetRecomputationDelay,
         ApproveTokens,
         DisapproveTokens
     }
@@ -64,25 +67,25 @@ contract Board is BytesHandler {
     }
 
     modifier onlyDirectors() {
-        require(isDirector(msg.sender), "Caller is not a director.");
+        require(isDirector(msg.sender), "Not director.");
         _;
     }
 
-    IterableSet.Set directors;
+    IterableSet.Set _directors;
     Motion[] public motions;
     AkropolisFund public fund;
 
     constructor (address[] initialDirectors)
         public
     {
-        directors.initialise();
+        _directors.initialise();
         uint len = initialDirectors.length;
         // If no directors were given, the sender is the first director.
         if (len == 0) {
-            directors.add(msg.sender);
+            _directors.add(msg.sender);
         } else {
             for (uint i; i < len; i++) {
-                directors.add(initialDirectors[i]);
+                _directors.add(initialDirectors[i]);
             }
         }
     }
@@ -92,7 +95,7 @@ contract Board is BytesHandler {
         view
         returns (bool)
     {
-        return directors.contains(director);
+        return _directors.contains(director);
     }
 
     function numDirectors()
@@ -100,7 +103,7 @@ contract Board is BytesHandler {
         view
         returns (uint)
     {
-        return directors.size();
+        return _directors.size();
     }
 
     function getDirector(uint i)
@@ -108,7 +111,7 @@ contract Board is BytesHandler {
         view
         returns (address)
     {
-        return directors.get(i);
+        return _directors.get(i);
     }
 
     function getDirectors()
@@ -116,15 +119,15 @@ contract Board is BytesHandler {
         view
         returns (address[])
     {
-        return directors.itemList();
+        return _directors.array();
     }
 
     function resignAsDirector()
         public
         onlyDirectors
     {
-        require(directors.size() > 1, "Sole director cannot resign.");
-        directors.remove(msg.sender);
+        require(_directors.size() > 1, "Sole director cannot resign.");
+        _directors.remove(msg.sender);
         emit Resigned(msg.sender);
         emit DirectorRemoved(msg.sender);
     }
@@ -151,7 +154,7 @@ contract Board is BytesHandler {
         view
         returns (Motion storage)
     {
-        require(motionID < motions.length, "Invalid motion ID.");
+        require(motionID < motions.length, "Invalid ID.");
         return motions[motionID];
     }
 
@@ -161,7 +164,7 @@ contract Board is BytesHandler {
         returns (Motion storage)
     {
         Motion storage motion = _getMotion(motionID);
-        require(motion.status == MotionStatus.Active, "Motion is inactive.");
+        require(motion.status == MotionStatus.Active, "Motion inactive.");
         return motion;
     }
 
@@ -182,8 +185,8 @@ contract Board is BytesHandler {
     {
         Motion storage motion = _getMotion(motionID);
         MotionStatus status = motion.status;
-        require(_isVotable(status), "Motion cannot be voted upon.");
-        require(!_motionPastExpiry(motion), "Motion has expired.");
+        require(_isVotable(status), "Motion not votable.");
+        require(!_motionPastExpiry(motion), "Motion expired.");
         return motion;
     }
 
@@ -193,7 +196,8 @@ contract Board is BytesHandler {
         onlyDirectors
         returns (uint)
     {
-        require(data.length > 0, "Data must not be empty.");
+        require(data.length > 0, "No data.");
+        require(bytes(description).length > 0, "No description.");
         uint id = _pushMotion(motionType, MotionStatus.Active, msg.sender,
                               duration, 0, 0, description, data);
         emit MotionInitiated(id);
@@ -228,7 +232,7 @@ contract Board is BytesHandler {
     {
         Motion storage motion = _getVotableMotion(motionID);
 
-        require(motion.status == MotionStatus.Passed, "Motion must pass to be executed.");
+        require(motion.status == MotionStatus.Passed, "Motion hasn't passed.");
 
         bytes storage data = motion.data;
         MotionType motionType = motion.motionType;
@@ -238,24 +242,30 @@ contract Board is BytesHandler {
             result = _executeSetFund(data);
         } else if (motionType == MotionType.SetManager) {
             result = _executeSetManager(data);
+        } else if (motionType == MotionType.SetContributionManager) {
+            result = _executeSetContributionManager(data);
         } else if (motionType == MotionType.AddDirectors) {
             result = _executeAddDirectors(data);
         } else if (motionType == MotionType.RemoveDirectors) {
             result = _executeRemoveDirectors(data);
         } else if (motionType == MotionType.SetManagementFee) {
             result = _executeSetManagementFee(data);
-        } else if (motionType == MotionType.SetMinimumTerm) {
-            result = _executeSetMinimumTerm(data);
-        } else if (motionType == MotionType.SetDenominatingAsset) {
-            result = _executeSetDenominatingAsset(data);
+        } else if (motionType == MotionType.SetMinimumLockupDuration) {
+            result = _executeSetMinimumLockupDuration(data);
+        } else if (motionType == MotionType.SetMinimumPayoutDuration) {
+            result = _executeSetMinimumPayoutDuration(data);
+        } else if (motionType == MotionType.SetDenomination) {
+            result = _executeSetDenomination(data);
         } else if (motionType == MotionType.ResetTimeLock) {
             result = _executeResetTimeLock(data);
+        } else if (motionType == MotionType.SetRecomputationDelay) {
+            result = _executeSetRecomputationDelay(data);
         } else if (motionType == MotionType.ApproveTokens) {
             result = _executeApproveTokens(data);
         } else if (motionType == MotionType.DisapproveTokens) {
             result = _executeDisapproveTokens(data);
         } else {
-            revert("Unsupported motion type (this should be impossible).");
+            revert("Paradox: unknown motion type.");
         }
 
         if (result) {
@@ -275,6 +285,7 @@ contract Board is BytesHandler {
     {
         address fundAddress = _extractAddress(data, 0);
         fund = AkropolisFund(fundAddress);
+        emit SetFund(fundAddress);
         return true;
     }
 
@@ -285,6 +296,13 @@ contract Board is BytesHandler {
         return fund.setManager(_extractAddress(data, 0));
     }
 
+    function _executeSetContributionManager(bytes data)
+        internal
+        returns (bool)
+    {
+        return fund.setContributionManager(_extractAddress(data, 0));
+    }
+
     function _executeAddDirectors(bytes data)
         internal
         returns (bool)
@@ -292,7 +310,7 @@ contract Board is BytesHandler {
         uint dataLength = data.length;
         for (uint i; i < dataLength; i += ADDRESS_BYTES) {
             address director = _extractAddress(data, i);
-            if (directors.add(director)) {
+            if (_directors.add(director)) {
                 emit DirectorAdded(director);
             }
         }
@@ -306,7 +324,7 @@ contract Board is BytesHandler {
         uint dataLength = data.length;
         for (uint i; i < dataLength; i += ADDRESS_BYTES) {
             address director = _extractAddress(data, i);
-            if (directors.remove(director)) {
+            if (_directors.remove(director)) {
                 emit DirectorRemoved(director);
             }
         }
@@ -320,18 +338,25 @@ contract Board is BytesHandler {
         return fund.setManagementFee(_extractUint(data, 0));
     }
 
-    function _executeSetMinimumTerm(bytes data)
+    function _executeSetMinimumLockupDuration(bytes data)
         internal
         returns (bool)
     {
-        return fund.setMinimumTerm(_extractUint(data, 0));
+        return fund.setMinimumLockupDuration(_extractUint(data, 0));
     }
 
-    function _executeSetDenominatingAsset(bytes data)
+    function _executeSetMinimumPayoutDuration(bytes data)
         internal
         returns (bool)
     {
-        return fund.setDenominatingAsset(ERC20Token(_extractAddress(data, 0)));
+        return fund.setMinimumPayoutDuration(_extractUint(data, 0));
+    }
+
+    function _executeSetDenomination(bytes data)
+        internal
+        returns (bool)
+    {
+        return fund.setDenomination(ERC20Token(_extractAddress(data, 0)));
     }
 
     function _executeResetTimeLock(bytes data)
@@ -339,6 +364,13 @@ contract Board is BytesHandler {
         returns (bool)
     {
         return fund.resetTimeLock(_extractAddress(data, 0));
+    }
+
+    function _executeSetRecomputationDelay(bytes data)
+        internal
+        returns (bool)
+    {
+        return fund.setRecomputationDelay(_extractUint(data, 0));
     }
 
     function _executeApproveTokens(bytes data)
@@ -370,8 +402,8 @@ contract Board is BytesHandler {
         onlyDirectors
     {
         Motion storage motion = _getActiveMotion(motionID);
-        require(msg.sender == motion.initiator, "Only the initiator may cancel a motion.");
-        require(motion.votesFor + motion.votesAgainst == 0, "Motions with non-abstention votes cannot be cancelled.");
+        require(msg.sender == motion.initiator, "Not initiator.");
+        require(motion.votesFor + motion.votesAgainst == 0, "Motion has votes.");
         motion.status = MotionStatus.Cancelled;
         emit MotionCancelled(motionID);
     }
@@ -393,21 +425,14 @@ contract Board is BytesHandler {
         return _motionPastExpiry(motion);
     }
 
-    function _expireMotion(Motion storage motion)
-        internal
-    {
-        require(_motionPastExpiry(motion), "Motion has not expired.");
-        motion.status = MotionStatus.Expired;
-        emit MotionExpired(motion.id);
-    }
-
     function expireMotion(uint motionID)
         public
         onlyDirectors
     {
         Motion storage motion = _getMotion(motionID);
-        require(_motionPastExpiry(motion), "Motion has not expired.");
-        _expireMotion(motion);
+        require(_motionPastExpiry(motion), "Motion not expired.");
+        motion.status = MotionStatus.Expired;
+        emit MotionExpired(motion.id);
     }
 
     function motionPasses(uint motionID)
@@ -431,7 +456,7 @@ contract Board is BytesHandler {
         view
         returns (bool)
     {
-        return motion.votesFor > directors.size() / 2;
+        return motion.votesFor > _directors.size() / 2;
     }
 
     function _motionFails(Motion storage motion)
@@ -439,7 +464,7 @@ contract Board is BytesHandler {
         view
         returns (bool)
     {
-        return motion.votesAgainst >= directors.size() / 2;
+        return motion.votesAgainst >= _directors.size() / 2;
     }
 
     function voteForMotion(uint motionID)
@@ -532,4 +557,5 @@ contract Board is BytesHandler {
     event MotionExecutionFailed(uint indexed motionID);
     event MotionCancelled(uint indexed motionID);
     event MotionExpired(uint indexed motionID);
+    event SetFund(address indexed fund);
 }

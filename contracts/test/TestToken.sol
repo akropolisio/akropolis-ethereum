@@ -2,12 +2,13 @@ pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
 import "../interfaces/ERC20Token.sol";
-import "../utils/SafeDecimalMath.sol";
+import "../utils/SafeMultiprecisionDecimalMath.sol";
 
-contract TestToken is ERC20Token, SafeDecimalMath {
+contract TestToken is ERC20Token, SafeMultiprecisionDecimalMath {
     constructor(string _symbol, uint total) public {
         symbol = _symbol;
-        totalSupply = total * UNIT;
+        decimals = 18;
+        totalSupply = total * (10**uint(decimals));
         balanceOf[msg.sender] = totalSupply;
         emit Transfer(address(0), msg.sender, totalSupply);
     }

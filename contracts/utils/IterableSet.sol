@@ -10,7 +10,7 @@ library IterableSet {
     }
 
     modifier assertInitialised(Set storage s) {
-        require(s.isInitialised(), "Set is uninitialised.");
+        require(s.isInitialised(), "Set uninitialised.");
         _;
     }
 
@@ -26,7 +26,21 @@ library IterableSet {
         view
         returns (bool)
     {
-        return s.items.length != 0 && s.items[0] == address(0);
+        return s.items.length != 0;
+    }
+
+    function destroy(Set storage s)
+        internal
+        assertInitialised(s)
+    {
+        uint length = s.items.length;
+
+        for (uint i; i < length; i++) {
+            delete s.indices[s.items[i]];
+            delete s.items[i];
+        }
+
+        s.items.length = 0;
     }
 
     function size(Set storage s)
@@ -54,11 +68,11 @@ library IterableSet {
         returns (address)
     {
         uint index = i + 1;
-        require(index < s.items.length, "Set index out of range.");
+        require(index < s.items.length, "Index out of range.");
         return s.items[index];
     }
 
-    function itemList(Set storage s)
+    function array(Set storage s)
         internal
         view
         assertInitialised(s)
@@ -112,7 +126,7 @@ library IterableSet {
         returns (address)
     {   
         uint len = s.items.length - 1;
-        require(len > 0, "Cannot pop from empty Set.");
+        require(len > 0, "Popped empty set.");
         address item = s.items[len];
 
         delete s.items[len];

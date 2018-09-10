@@ -20,19 +20,27 @@ contract FakeFund {
         return true;
     }
 
-    function setMinimumTerm(uint term)
+    function setMinimumLockupDuration(uint term)
         external
         returns (bool)
     {
-        emit SetMinimumTerm(term);
+        emit SetMinimumLockupDuration(term);
         return true;
     }
 
-    function setDenominatingAsset(address token)
+    function setMinimumPayoutDuration(uint term)
         external
         returns (bool)
     {
-        emit SetDenominatingAsset(token);
+        emit SetMinimumPayoutDuration(term);
+        return true;
+    }
+
+    function setDenomination(address token)
+        external
+        returns (bool)
+    {
+        emit SetDenomination(token);
         return true;
     }
 
@@ -41,6 +49,14 @@ contract FakeFund {
         returns (bool)
     {
         emit ResetTimeLock(user);
+        return true;
+    }
+
+    function setRecomputationDelay(uint delay)
+        external
+        returns (bool)
+    {
+        emit SetRecomputationDelay(delay);
         return true;
     }
 
@@ -62,9 +78,11 @@ contract FakeFund {
 
     event SetManager(address indexed manager);
     event SetManagementFee(uint indexed fee);
-    event SetMinimumTerm(uint indexed term);
-    event SetDenominatingAsset(address indexed token);
+    event SetMinimumLockupDuration(uint indexed term);
+    event SetMinimumPayoutDuration(uint indexed term);
+    event SetDenomination(address indexed token);
     event ResetTimeLock(address indexed user);
+    event SetRecomputationDelay(uint indexed delay);
     event ApproveTokens(ERC20Token[] tokens);
     event DisapproveTokens(ERC20Token[] tokens);
 }

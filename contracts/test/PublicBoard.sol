@@ -79,6 +79,20 @@ contract PublicBoard is Board {
         return _executeSetManagementFee(data);
     }
 
+    function executeSetMinimumLockupDuration(bytes data)
+        public
+        returns (bool)
+    {
+        return _executeSetMinimumLockupDuration(data);
+    }
+
+    function executeSetMinimumPayoutDuration(bytes data)
+        public
+        returns (bool)
+    {
+        return _executeSetMinimumPayoutDuration(data);
+    }
+
     function executeResetTimeLock(bytes data)
         public
         returns (bool)

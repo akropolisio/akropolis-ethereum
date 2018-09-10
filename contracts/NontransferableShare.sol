@@ -1,13 +1,14 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
-import "./utils/SafeDecimalMath.sol";
+import "./utils/SafeMultiprecisionDecimalMath.sol";
 
-contract NontransferableShare is SafeDecimalMath {
+contract NontransferableShare is SafeMultiprecisionDecimalMath {
 
     string public name;
     string public symbol;
     uint public totalSupply;
+    uint8 constant public decimals = 18;
     mapping (address => uint) public balanceOf;
 
     constructor(string _name, string _symbol)

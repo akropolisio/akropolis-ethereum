@@ -3,14 +3,11 @@
 FILE INFORMATION
 -----------------------------------------------------------------
 
-file:       SafeDecimalMath.sol
+file:       SafeMultiprecisionDecimalMath.sol
 version:    1.0
 author:     Anton Jurisevic
 
-date:       2018-2-5
-
-auditors: Sigma Prime, https://github.com/sigp/havven-audit
-          BlocTrax, https://havven.io/uploads/havven_bloctrax_security_audit_june-6th.pdf
+date:       2018-9-3
 
 -----------------------------------------------------------------
 MODULE DESCRIPTION
@@ -18,13 +15,16 @@ MODULE DESCRIPTION
 
 A fixed point decimal library that provides basic mathematical
 operations, and checks for unsafe arguments, for example that
-would lead to overflows.
+would lead to overflows. Exceptions are thrown whenever those
+unsafe operations occur.
 
-Exceptions are thrown whenever those unsafe operations
-occur.
+The library has no fixed precision, and all relevant operations
+must be provided with the input and output precision of the
+operands.
 
 -----------------------------------------------------------------
 */
+
 
 pragma solidity 0.4.24;
 pragma experimental "v0.5.0";
@@ -35,13 +35,15 @@ pragma experimental "v0.5.0";
  * @dev Functions accepting uints in this contract and derived contracts
  * are taken to be such fixed point decimals (including fiat, ether, and nomin quantities).
  */
-contract SafeDecimalMath {
+contract SafeMultiprecisionDecimalMath {
 
-    /* Number of decimal places in the representation. */
-    uint8 public constant decimals = 18;
-
-    /* The number representing 1.0. */
-    uint public constant UNIT = 10 ** uint(decimals);
+    function unit(uint decimals)
+        pure
+        internal
+        returns (uint)
+    {
+        return 10 ** decimals;
+    }
 
     /**
      * @return True iff adding x and y will not overflow.
@@ -62,7 +64,7 @@ contract SafeDecimalMath {
         internal
         returns (uint)
     {
-        require(x + y >= y, "Safe add failed");
+        require(x + y >= y, "Unsafe add.");
         return x + y;
     }
 
@@ -85,7 +87,7 @@ contract SafeDecimalMath {
         internal
         returns (uint)
     {
-        require(y <= x, "Safe sub failed");
+        require(y <= x, "Unsafe sub.");
         return x - y;
     }
 
@@ -115,8 +117,23 @@ contract SafeDecimalMath {
             return 0;
         }
         uint p = x * y;
-        require(p / x == y, "Safe mul failed");
+        require(p / x == y, "Unsafe mul.");
         return p;
+    }
+
+    function convertPrecision(uint x, uint decimalsFrom, uint decimalsTo)
+        pure
+        internal
+        returns (uint)
+    {   
+        if (decimalsFrom == decimalsTo) {
+            return x;
+        }
+        // The guard allows us to eschew safeSub();
+        if (decimalsFrom > decimalsTo) {
+            return safeMul(x, unit(decimalsFrom - decimalsTo));
+        }
+        return safeDiv(x, unit(decimalsTo - decimalsFrom));
     }
 
     /**
@@ -131,14 +148,17 @@ contract SafeDecimalMath {
      * contain small enough fractional components. It would also marginally diminish the 
      * domain this function is defined upon. 
      */
-    function safeMul_dec(uint x, uint y)
+    function safeMul_mpdec(uint x, uint xDecimals, uint y, uint yDecimals, uint outDecimals)
         pure
         internal
         returns (uint)
     {
-        /* Divide by UNIT to remove the extra factor introduced by the product. */
-        return safeMul(x, y) / UNIT;
-
+        if (xDecimals == outDecimals) {
+            return safeDiv(safeMul(x, y), unit(yDecimals));
+        } else if (yDecimals == outDecimals) {
+            return safeDiv(safeMul(x, y), unit(xDecimals));
+        }
+        return convertPrecision(safeMul(x, y), xDecimals + yDecimals, outDecimals);
     }
 
     /**
@@ -163,7 +183,7 @@ contract SafeDecimalMath {
         /* Although a 0 denominator already throws an exception,
          * it is equivalent to a THROW operation, which consumes all gas.
          * A require statement emits REVERT instead, which remits remaining gas. */
-        require(y != 0, "Denominator cannot be zero");
+        require(y != 0, "Unsafe div.");
         return x / y;
     }
 
@@ -172,50 +192,27 @@ contract SafeDecimalMath {
      * @dev Throws an exception in case of overflow or zero divisor; x must be less than 2^256 / UNIT.
      * Internal rounding is downward: a similar caveat holds as with safeMul_dec().
      */
-    function safeDiv_dec(uint x, uint y)
+    function safeDiv_mpdec(uint x, uint xDecimals, uint y, uint yDecimals, uint outputDecimals)
         pure
         internal
         returns (uint)
     {
-        /* Reintroduce the UNIT factor that will be divided out by y. */
-        return safeDiv(safeMul(x, UNIT), y);
+        /* Reintroduce the yUnit factor that will be divided out by y. */
+        if (xDecimals == outputDecimals) {
+            return safeDiv(safeMul(x, unit(yDecimals)), y);
+        }
+        return convertPrecision(safeDiv(safeMul(x, unit(yDecimals)), y), xDecimals, outputDecimals);
     }
 
     /**
      * @dev Convert an unsigned integer to a unsigned fixed-point decimal.
      * Throw an exception if the result would be out of range.
      */
-    function intToDec(uint i)
+    function intToDec(uint i, uint decimals)
         pure
         internal
         returns (uint)
     {
-        return safeMul(i, UNIT);
+        return safeMul(i, unit(decimals));
     }
 }
-
-/*
------------------------------------------------------------------------------
-MIT License
-
-Copyright (c) 2018 Havven
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
------------------------------------------------------------------------------
-*/

@@ -38,6 +38,12 @@ contract PublicIterableSet {
         set.initialise();
     }
 
+    function destroy()
+        public
+    {
+        set.destroy();
+    }
+
     function isInitialised()
         public
         view
@@ -68,6 +74,14 @@ contract PublicIterableSet {
         returns (address)
     {
         return set.get(i);
+    }
+
+    function array()
+        public
+        view
+        returns (address[])
+    {
+        return set.array();
     }
 
     function add(address a)
