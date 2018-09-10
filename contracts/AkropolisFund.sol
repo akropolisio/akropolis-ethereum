@@ -144,18 +144,18 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     event newMembershipRequest(address indexed from);
     event newMemberAccepted(address indexed member);
 
-    modifier onlyBoard(address account) {
-        require(account == address(board()), "Not board.");
+    modifier onlyBoard {
+        require(msg.sender == address(board()), "Not board.");
         _;
     }
 
-    modifier onlyRegistry(address account) {
-        require(account == address(registry), "Not registry.");
+    modifier onlyRegistry {
+        require(msg.sender == address(registry), "Not registry.");
         _;
     }
 
-    modifier onlyManager(address account) {
-        require(account == manager, "Not manager.");
+    modifier onlyManager {
+        require(msg.sender == manager, "Not manager.");
         _;
     }
 
@@ -232,7 +232,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setManager(address newManager) 
         external
-        onlyBoard(msg.sender)
+        onlyBoard
         returns (bool)
     {
         registry.updateManager(manager, newManager);
@@ -242,7 +242,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setContributionManager(address newContributionManager) 
         external
-        onlyBoard(msg.sender)
+        onlyBoard
         returns (bool)
     {
         contributionManager = newContributionManager;
@@ -251,7 +251,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function nominateNewBoard(Board newBoard)
         external
-        onlyBoard(msg.sender)
+        onlyBoard
         returns (bool)
     {
         nominateNewOwner(address(newBoard));
@@ -260,7 +260,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setManagementFee(uint newFee)
         external
-        onlyBoard(msg.sender)
+        onlyBoard
         returns (bool)
     {
         managementFeePerYear = newFee;
@@ -269,7 +269,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setMinimumLockupDuration(uint newLockupDuration)
         external
-        onlyBoard(msg.sender)
+        onlyBoard
         returns (bool)
     {
         minimumLockupDuration = newLockupDuration;
@@ -278,7 +278,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setMinimumPayoutDuration(uint newPayoutDuration)
         external
-        onlyBoard(msg.sender)
+        onlyBoard
         returns (bool)
     {
         minimumPayoutDuration = newPayoutDuration;
@@ -287,7 +287,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setRecomputationDelay(uint delay)
         external
-        onlyBoard(msg.sender)
+        onlyBoard
         returns (bool)
     {
         recomputationDelay = delay;
@@ -296,7 +296,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setDenomination(ERC20Token token)
         external
-        onlyBoard(msg.sender)
+        onlyBoard
         returns (bool)
     {
         _approvedTokens.remove(denomination);
@@ -308,7 +308,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setRegistry(Registry _registry)
         external
-        onlyRegistry(msg.sender)
+        onlyRegistry
     {
         registry = _registry;
     }
@@ -319,7 +319,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // a user to propose a modification to their payment schedule.
     function resetTimeLock(address member)
         external
-        onlyBoard(msg.sender)
+        onlyBoard
         onlyMember(member)
         returns (bool)
     {
@@ -330,7 +330,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function approveTokens(ERC20Token[] tokens)
       external
-      onlyBoard(msg.sender)
+      onlyBoard
       returns (bool)
     {
         for (uint i; i < tokens.length; i++) {
@@ -341,7 +341,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function disapproveTokens(ERC20Token[] tokens)
       external
-      onlyBoard(msg.sender)
+      onlyBoard
       returns (bool)
     {
         for (uint i; i < tokens.length; i++) {
@@ -702,7 +702,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
                                uint initialContribution, uint expectedShares, bool setupSchedule,
                                uint scheduledContribution, uint scheduleDelay, uint scheduleDuration)
         public
-        onlyRegistry(msg.sender)
+        onlyRegistry
         onlyNotMember(candidate)
         noPendingJoin(candidate)
     {
@@ -833,7 +833,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function denyMembershipRequest(address candidate)
         public
-        onlyManager(msg.sender)
+        onlyManager
     {
         delete membershipRequests[candidate];
         registry.denyMembershipRequest(candidate);
@@ -841,7 +841,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function cancelMembershipRequest(address candidate)
         public
-        onlyRegistry(msg.sender)
+        onlyRegistry
         onlyNotMember(candidate)
     {
         // This is sent from the registry and already deleted on their end
@@ -853,7 +853,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         if (!_ownedTokens.contains(token)) {
             if(token.balanceOf(this) > 0) {
-                ownedTokens.add(token);
+                _ownedTokens.add(token);
             }
         }
     }
@@ -870,7 +870,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function approveMembershipRequest(address candidate)
         public
-        onlyManager(msg.sender)
+        onlyManager
         postRecordFundValueIfTime
     {
         MembershipRequest storage request = membershipRequests[candidate];
@@ -1001,7 +1001,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function withdrawFees()
         public
-        onlyManager(msg.sender)
+        onlyManager
         postRecordFundValueIfTime
     {
         unimplemented();
@@ -1011,7 +1011,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // transfers might require board approval before they go through.
     function withdraw(ERC20Token token, address destination, uint quantity, string annotation)
         external
-        onlyManager(msg.sender)
+        onlyManager
         postRecordFundValueIfTime
         returns (uint)
     {
@@ -1025,7 +1025,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function approveWithdrawal(ERC20Token token, address spender, uint quantity, string annotation)
         external
-        onlyManager(msg.sender)
+        onlyManager
         returns (uint)
     {
         return _approveWithdrawal(token, spender, quantity, annotation);
@@ -1033,7 +1033,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function approveUserJoiningFees(uint numUsers)
         external
-        onlyManager(msg.sender)
+        onlyManager
         returns (uint)
     {
         return _approveWithdrawal(registry.feeToken(), address(registry),
@@ -1054,7 +1054,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function deposit(ERC20Token token, address depositor, uint quantity, string annotation)
         external
-        onlyManager(msg.sender)
+        onlyManager
         onlyApprovedToken(token)
         postRecordFundValueIfTime
         returns (uint)
