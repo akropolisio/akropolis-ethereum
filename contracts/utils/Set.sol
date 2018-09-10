@@ -1,8 +1,8 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
-library IterableSet {
-    using IterableSet for IterableSet.Set;
+library AddressSet {
+    using AddressSet for AddressSet.Set;
 
     struct Set {
         mapping(address => uint) indices;

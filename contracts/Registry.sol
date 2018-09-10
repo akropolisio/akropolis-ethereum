@@ -3,11 +3,11 @@ pragma experimental "v0.5.0";
 
 import "./AkropolisFund.sol";
 import "./interfaces/ERC20Token.sol";
-import "./utils/IterableSet.sol";
+import "./utils/Set.sol";
 import "./utils/Owned.sol";
 
 contract Registry is Owned {
-    using IterableSet for IterableSet.Set;
+    using AddressSet for AddressSet.Set;
 
     // This will typically be the Akropolis Token
     ERC20Token public feeToken;
@@ -19,15 +19,15 @@ contract Registry is Owned {
     uint public userRegistrationFee; // TODO: rename to membershipFee
 
     // The set of addresses approved to create new funds.
-    IterableSet.Set sponsors;
+    AddressSet.Set sponsors;
 
     // Iterable set of funds
-    IterableSet.Set funds;
+    AddressSet.Set funds;
 
     // List the funds a user is in
-    mapping(address => IterableSet.Set) internal _userFunds;
-    mapping(address => IterableSet.Set) internal _userRequests;
-    mapping(address => IterableSet.Set) internal _managerFunds;
+    mapping(address => AddressSet.Set) internal _userFunds;
+    mapping(address => AddressSet.Set) internal _userRequests;
+    mapping(address => AddressSet.Set) internal _managerFunds;
 
     event NewFund(AkropolisFund indexed fund);
     event RemovedFund(AkropolisFund indexed fund);
@@ -101,7 +101,7 @@ contract Registry is Owned {
         return sponsors.contains(sponsor);
     }
 
-    function _checkRequestExists(IterableSet.Set storage requests, address fund)
+    function _checkRequestExists(AddressSet.Set storage requests, address fund)
         internal
         view
     {
@@ -147,7 +147,7 @@ contract Registry is Owned {
         fund.requestMembership(msg.sender, lockupDuration, payoutDuration,
                                initialContribution, expectedShares, setupSchedule,
                                scheduledContribution, scheduleDelay, scheduleDuration);
-        IterableSet.Set storage requests = _userRequests[msg.sender];
+        AddressSet.Set storage requests = _userRequests[msg.sender];
         if (!requests.isInitialised()) {
             requests.initialise();
         }
@@ -157,7 +157,7 @@ contract Registry is Owned {
     function cancelMembershipRequest(AkropolisFund fund)
         external
     {
-        IterableSet.Set storage requests = _userRequests[msg.sender];
+        AddressSet.Set storage requests = _userRequests[msg.sender];
         _checkRequestExists(requests, fund);
         requests.remove(address(fund));
         fund.cancelMembershipRequest(msg.sender);
@@ -168,13 +168,13 @@ contract Registry is Owned {
         external 
         onlyRegisteredFund(msg.sender)
     {
-        IterableSet.Set storage requests = _userRequests[user];
+        AddressSet.Set storage requests = _userRequests[user];
 
         _checkRequestExists(requests, msg.sender);
         _withdrawFee(msg.sender, userRegistrationFee);
 
         requests.remove(user);
-        IterableSet.Set storage usersFunds = _userFunds[user];
+        AddressSet.Set storage usersFunds = _userFunds[user];
         if (!usersFunds.isInitialised()) {
             usersFunds.initialise();
         }
@@ -185,7 +185,7 @@ contract Registry is Owned {
         external
         onlyRegisteredFund(msg.sender)
     {
-        IterableSet.Set storage requests = _userRequests[user];
+        AddressSet.Set storage requests = _userRequests[user];
         _checkRequestExists(requests, msg.sender);
         requests.remove(msg.sender);
     }
@@ -194,12 +194,12 @@ contract Registry is Owned {
         external
         onlyRegisteredFund(msg.sender)
     {
-        IterableSet.Set storage managedFunds = _managerFunds[oldManager];
+        AddressSet.Set storage managedFunds = _managerFunds[oldManager];
         // If the manager is being tracked
         if (managedFunds.isInitialised()) {
             managedFunds.remove(msg.sender);
         }
-        IterableSet.Set storage newManagedFunds = _managerFunds[newManager];
+        AddressSet.Set storage newManagedFunds = _managerFunds[newManager];
         if (!newManagedFunds.isInitialised()) {
             newManagedFunds.initialise();
         }
@@ -212,7 +212,7 @@ contract Registry is Owned {
         view
         returns (address[])
     {
-        IterableSet.Set storage managedFunds = _managerFunds[manager];
+        AddressSet.Set storage managedFunds = _managerFunds[manager];
         return managedFunds.array();
     }
 

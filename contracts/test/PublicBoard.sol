@@ -113,5 +113,4 @@ contract PublicBoard is Board {
     {
         return _executeDisapproveTokens(data);
     }
-
 }

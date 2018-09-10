@@ -2,11 +2,11 @@ pragma solidity ^0.4.24;
 
 import "./interfaces/ERC20Token.sol";
 import "./utils/SafeMultiprecisionDecimalMath.sol";
-import "./utils/IterableSet.sol";
+import "./utils/Set.sol";
 import "./utils/Owned.sol";
 
 contract Ticker is Owned, SafeMultiprecisionDecimalMath {
-    using IterableSet for IterableSet.Set;
+    using AddressSet for AddressSet.Set;
     
     ERC20Token public denomination;
     uint8 public denominationDecimals;
@@ -29,8 +29,8 @@ contract Ticker is Owned, SafeMultiprecisionDecimalMath {
     struct OraclePermissions {
         bool isOracle;
         bool isUniversal;
-        IterableSet.Set whitelist;
-        IterableSet.Set blacklist;
+        AddressSet.Set whitelist;
+        AddressSet.Set blacklist;
     }
 
     constructor(ERC20Token _denomination) 

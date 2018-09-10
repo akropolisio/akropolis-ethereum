@@ -1,13 +1,13 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
-import "./utils/IterableSet.sol";
+import "./utils/Set.sol";
 import "./utils/BytesHandler.sol";
 import "./interfaces/ERC20Token.sol";
 import "./AkropolisFund.sol";
 
 contract Board is BytesHandler {
-    using IterableSet for IterableSet.Set;
+    using AddressSet for AddressSet.Set;
 
     enum MotionType {
         SetFund,
@@ -71,7 +71,7 @@ contract Board is BytesHandler {
         _;
     }
 
-    IterableSet.Set _directors;
+    AddressSet.Set _directors;
     Motion[] public motions;
     AkropolisFund public fund;
 
