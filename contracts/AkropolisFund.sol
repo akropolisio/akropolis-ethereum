@@ -29,24 +29,24 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // Percentage of AUM over one year.
     // TODO: Add a flat rate as well. Maybe also performance fees.
     uint public managementFeePerYear;
-    
+
+    // Users may not join unless they satisfy these minima. 
     uint public minimumLockupDuration;
     uint public minimumPayoutDuration;
 
-    bytes32 public descriptionHash;
-
     // Tokens that this fund is approved to own.
-    IterableSet.Set approvedTokens;
+    IterableSet.Set _approvedTokens;
 
     // Tokens with nonzero balances.
-    IterableSet.Set ownedTokens;
+    // These are tracked for more-efficient computation of gross fund value.
+    IterableSet.Set _ownedTokens;
 
     // Token in which benefits will be paid.
     ERC20Token public denomination;
     uint public denominationDecimals;
 
     // The set of members of this fund and their details.
-    IterableSet.Set members;
+    IterableSet.Set _members;
     mapping(address => MemberDetails) public memberDetails;
 
     // Candidate member join requests.
@@ -144,28 +144,28 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     event newMembershipRequest(address indexed from);
     event newMemberAccepted(address indexed member);
 
-    modifier onlyBoard() {
-        require(msg.sender == address(board()), "Not board.");
+    modifier onlyBoard(address account) {
+        require(account == address(board()), "Not board.");
         _;
     }
 
-    modifier onlyRegistry() {
-        require(msg.sender == address(registry), "Not registry.");
+    modifier onlyRegistry(address account) {
+        require(account == address(registry), "Not registry.");
         _;
     }
 
-    modifier onlyManager() {
-        require(msg.sender == manager, "Not manager.");
+    modifier onlyManager(address account) {
+        require(account == manager, "Not manager.");
         _;
     }
 
     modifier onlyMember(address account) {
-        require(members.contains(account), "Not member.");
+        require(_members.contains(account), "Not member.");
         _;
     }
 
     modifier onlyNotMember(address account) {
-        require(!members.contains(account), "Already member.");
+        require(!_members.contains(account), "Already member.");
         _;
     }
 
@@ -176,7 +176,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     }
 
     modifier onlyApprovedToken(address token) {
-        require(approvedTokens.contains(token), "Token not approved.");
+        require(_approvedTokens.contains(token), "Token not approved.");
         _;
     }
 
@@ -199,38 +199,40 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         uint _minimumPayoutDuration,
         ERC20Token _denomination,
         string _name,
-        string _symbol,
-        bytes32 _descriptionHash
+        string _symbol
     )
-        Owned(_board)
-        NontransferableShare(_name, _symbol)
+        Owned(_board) // The board is the owner of this contract.
+        NontransferableShare(_name, _symbol) // Internal shares are managed as a non-transferrable ERC20 token
         public
     {
+        registry = _registry;
         managementFeePerYear = _managementFeePerYear;
         minimumLockupDuration = _minimumLockupDuration;
         minimumPayoutDuration = _minimumPayoutDuration;
-        descriptionHash = _descriptionHash;
-        registry = _registry;
 
-        members.initialise();
-        approvedTokens.initialise();
-        ownedTokens.initialise();
+        // All sets must first be initialised before they are used.
+        _members.initialise();
+        _approvedTokens.initialise();
+        _ownedTokens.initialise();
 
-        // By default, the denominating asset is an approved investible token.
+        // By default the denominating asset is an approved investible token.
         denomination = _denomination;
         denominationDecimals = _denomination.decimals();
-        approvedTokens.add(_denomination);
+        _approvedTokens.add(_denomination);
 
+        // Ticker records the fund value so that functions that rely upon
+        // obtaining the last fund valuation do not break.
+        // This must occur after the previous sets have been initialised.
         ticker = _ticker;
         _recordFundValue();
 
-        // Register the fund on the registry, msg.sender pays for it!
+        // Register the fund on the registry, msg.sender pays for it in AKT.
         registry.addFund(msg.sender);
     }
 
     function setManager(address newManager) 
         external
-        onlyBoard
+        onlyBoard(msg.sender)
         returns (bool)
     {
         registry.updateManager(manager, newManager);
@@ -240,17 +242,16 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setContributionManager(address newContributionManager) 
         external
-        onlyBoard
+        onlyBoard(msg.sender)
         returns (bool)
     {
         contributionManager = newContributionManager;
         return true;
     }
 
-
     function nominateNewBoard(Board newBoard)
         external
-        onlyBoard
+        onlyBoard(msg.sender)
         returns (bool)
     {
         nominateNewOwner(address(newBoard));
@@ -259,7 +260,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setManagementFee(uint newFee)
         external
-        onlyBoard
+        onlyBoard(msg.sender)
         returns (bool)
     {
         managementFeePerYear = newFee;
@@ -268,7 +269,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setMinimumLockupDuration(uint newLockupDuration)
         external
-        onlyBoard
+        onlyBoard(msg.sender)
         returns (bool)
     {
         minimumLockupDuration = newLockupDuration;
@@ -277,7 +278,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setMinimumPayoutDuration(uint newPayoutDuration)
         external
-        onlyBoard
+        onlyBoard(msg.sender)
         returns (bool)
     {
         minimumPayoutDuration = newPayoutDuration;
@@ -286,7 +287,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setRecomputationDelay(uint delay)
         external
-        onlyBoard
+        onlyBoard(msg.sender)
         returns (bool)
     {
         recomputationDelay = delay;
@@ -295,60 +296,56 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function setDenomination(ERC20Token token)
         external
-        onlyBoard
+        onlyBoard(msg.sender)
         returns (bool)
     {
-        approvedTokens.remove(denomination);
-        approvedTokens.add(token);
+        _approvedTokens.remove(denomination);
+        _approvedTokens.add(token);
         denomination = token;
         denominationDecimals = token.decimals();
         return true;
     }
 
-    function setDescriptionHash(bytes32 newHash)
-        external
-        onlyBoard
-        returns (bool)
-    {
-        descriptionHash = newHash;
-        return true;
-    }
-
     function setRegistry(Registry _registry)
         external
-        onlyRegistry
+        onlyRegistry(msg.sender)
     {
         registry = _registry;
     }
 
+
+    // The board can only unlock someone's lock so that they
+    // can withdraw everything. A more robust system would allow
+    // a user to propose a modification to their payment schedule.
     function resetTimeLock(address member)
         external
-        onlyBoard
+        onlyBoard(msg.sender)
         onlyMember(member)
         returns (bool)
     {
         memberDetails[member].unlockTime = now;
+        memberDetails[member].finalBenefitTime = now;
         return true;
     }
 
     function approveTokens(ERC20Token[] tokens)
       external
-      onlyBoard
+      onlyBoard(msg.sender)
       returns (bool)
     {
         for (uint i; i < tokens.length; i++) {
-            approvedTokens.add(address(tokens[i]));
+            _approvedTokens.add(address(tokens[i]));
         }
         return true;
     }
 
     function disapproveTokens(ERC20Token[] tokens)
       external
-      onlyBoard
+      onlyBoard(msg.sender)
       returns (bool)
     {
         for (uint i; i < tokens.length; i++) {
-            approvedTokens.remove(address(tokens[i]));
+            _approvedTokens.remove(address(tokens[i]));
         }
         return true;
     }
@@ -358,7 +355,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (bool)
     {
-        return approvedTokens.contains(token);
+        return _approvedTokens.contains(token);
     }
 
     function numApprovedTokens()
@@ -366,7 +363,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (uint)
     {
-        return approvedTokens.size();
+        return _approvedTokens.size();
     }
 
     function approvedToken(uint i)
@@ -374,23 +371,56 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (address)
     {
-        return approvedTokens.get(i);
+        return _approvedTokens.get(i);
     }
     
-    function getApprovedTokens()
+    function approvedTokens()
         external
         view
         returns (address[])
     {
-        return approvedTokens.array();
+        return _approvedTokens.array();
     }
+
+    function isOwnedToken(address token) 
+        external
+        view
+        returns (bool)
+    {
+        return _ownedTokens.contains(token);
+    }
+
+    function numOwnedTokens()
+        external
+        view
+        returns (uint)
+    {
+        return _ownedTokens.size();
+    }
+
+    function ownedToken(uint i)
+        external
+        view
+        returns (address)
+    {
+        return _ownedTokens.get(i);
+    }
+    
+    function ownedTokens()
+        external
+        view
+        returns (address[])
+    {
+        return _ownedTokens.array();
+    }
+
 
     function isMember(address account)
         external
         view
         returns (bool)
     {
-        return members.contains(account);
+        return _members.contains(account);
     }
 
     function numMembers()
@@ -398,7 +428,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (uint)
     {
-        return members.size();
+        return _members.size();
     }
 
     function getMember(uint i)
@@ -406,7 +436,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (address)
     {
-        return members.get(i);
+        return _members.get(i);
     }
 
     function board()
@@ -478,12 +508,12 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (ERC20Token[] tokens, uint[] tokenBalances)
     {
-        uint numTokens = ownedTokens.size();
+        uint numTokens = _ownedTokens.size();
         uint[] memory bals = new uint[](numTokens);
         ERC20Token[] memory toks = new ERC20Token[](numTokens);
 
         for (uint i; i < numTokens; i++) {
-            ERC20Token token = ERC20Token(approvedTokens.get(i));
+            ERC20Token token = ERC20Token(_approvedTokens.get(i));
             bals[i] = token.balanceOf(this);
             toks[i] = token;
         }
@@ -672,7 +702,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
                                uint initialContribution, uint expectedShares, bool setupSchedule,
                                uint scheduledContribution, uint scheduleDelay, uint scheduleDuration)
         public
-        onlyRegistry
+        onlyRegistry(msg.sender)
         onlyNotMember(candidate)
         noPendingJoin(candidate)
     {
@@ -803,7 +833,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function denyMembershipRequest(address candidate)
         public
-        onlyManager
+        onlyManager(msg.sender)
     {
         delete membershipRequests[candidate];
         registry.denyMembershipRequest(candidate);
@@ -811,7 +841,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function cancelMembershipRequest(address candidate)
         public
-        onlyRegistry
+        onlyRegistry(msg.sender)
         onlyNotMember(candidate)
     {
         // This is sent from the registry and already deleted on their end
@@ -821,7 +851,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function _addOwnedTokenIfBalance(ERC20Token token)
         internal
     {
-        if (!ownedTokens.contains(token)) {
+        if (!_ownedTokens.contains(token)) {
             if(token.balanceOf(this) > 0) {
                 ownedTokens.add(token);
             }
@@ -831,16 +861,16 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function _removeOwnedTokenIfNoBalance(ERC20Token token)
         internal
     {
-        if (ownedTokens.contains(token)) {
+        if (_ownedTokens.contains(token)) {
             if(token.balanceOf(this) == 0) {
-                ownedTokens.remove(token);
+                _ownedTokens.remove(token);
             }
         }
     }
 
     function approveMembershipRequest(address candidate)
         public
-        onlyManager
+        onlyManager(msg.sender)
         postRecordFundValueIfTime
     {
         MembershipRequest storage request = membershipRequests[candidate];
@@ -848,7 +878,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
         // Add them as a member; this must occur before calling _contribute,
         // which enforces that the beneficiary is a member.
-        members.add(candidate);
+        _members.add(candidate);
         uint lockupDuration = request.lockupDuration;
         memberDetails[candidate] = MemberDetails(now,
                                                  now + lockupDuration,
@@ -971,7 +1001,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function withdrawFees()
         public
-        onlyManager
+        onlyManager(msg.sender)
         postRecordFundValueIfTime
     {
         unimplemented();
@@ -981,7 +1011,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // transfers might require board approval before they go through.
     function withdraw(ERC20Token token, address destination, uint quantity, string annotation)
         external
-        onlyManager
+        onlyManager(msg.sender)
         postRecordFundValueIfTime
         returns (uint)
     {
@@ -995,7 +1025,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function approveWithdrawal(ERC20Token token, address spender, uint quantity, string annotation)
         external
-        onlyManager
+        onlyManager(msg.sender)
         returns (uint)
     {
         return _approveWithdrawal(token, spender, quantity, annotation);
@@ -1003,7 +1033,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function approveUserJoiningFees(uint numUsers)
         external
-        onlyManager
+        onlyManager(msg.sender)
         returns (uint)
     {
         return _approveWithdrawal(registry.feeToken(), address(registry),
@@ -1024,7 +1054,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     function deposit(ERC20Token token, address depositor, uint quantity, string annotation)
         external
-        onlyManager
+        onlyManager(msg.sender)
         onlyApprovedToken(token)
         postRecordFundValueIfTime
         returns (uint)
@@ -1032,7 +1062,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         // TODO: check the Governor if this deposit is permitted.
         require(bytes(annotation).length > 0, "No annotation.");
         require(!membershipRequests[depositor].pending, "Depositor is candidate member.");
-        if (members.contains(depositor)) {
+        if (_members.contains(depositor)) {
             require(managerDebitAllowance[depositor][token] >= quantity, "Insufficient direct debit allowance.");
             managerDebitAllowance[depositor][token] -= quantity;
         }
