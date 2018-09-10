@@ -76,7 +76,7 @@ contract PublicBoard is Board {
         public
         returns (bool)
     {
-        return _executeSetManagementFee(data);
+        return _executeSetManagementFeeRatePerYear(data);
     }
 
     function executeSetMinimumLockupDuration(bytes data)

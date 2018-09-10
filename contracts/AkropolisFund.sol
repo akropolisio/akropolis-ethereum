@@ -8,10 +8,9 @@ import "./Registry.sol";
 import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/Set.sol";
-import "./utils/Unimplemented.sol";
 import "./utils/Owned.sol";
 
-contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemented {
+contract AkropolisFund is Owned, PensionFund, NontransferableShare {
     using AddressSet for AddressSet.Set;
 
     // The pension fund manger
@@ -28,8 +27,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
     // Percentage of AUM over one year.
     // TODO: Add a flat rate as well. Maybe also performance fees.
-    uint public managementFeePerYear;
-    uint _lastFeeComputationTime;
+    uint public managementFeeRatePerYear;
+    uint public lastFeeWithdrawalTime;
 
     // Users may not join unless they satisfy these minima. 
     uint public minimumLockupDuration;
@@ -60,12 +59,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     mapping(address => AddressSet.Set) _permittedContributors;
     // Active contribution schedules. The signature here is (beneficiary => contributor => schedule).
     mapping(address => mapping(address => RecurringContributionSchedule)) public contributionSchedule;
-
-    // Members can grant the manager permission to directly withdraw.
-    // Ordinarily, they are not permitted to pull deposits from member accounts,
-    // which may have granted ERC-20 approvals due to recurring payments.
-    // Type: member => token => quantity.
-    mapping(address => mapping(address => uint)) public managerDebitAllowance;
 
     // Historic record of actions taken by the fund manager.
     LogEntry[] public managementLog;
@@ -121,7 +114,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     enum LogType {
         Withdrawal,
         Deposit,
-        Approval
+        Approval,
+        FeeWithdrawal
     }
 
     struct LogEntry {
@@ -170,22 +164,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         _;
     }
 
-    modifier noPendingJoin(address account) {
-        MembershipRequest memory request = membershipRequests[account];
-        require(!request.pending, "Request exists.");
-        _;
-    }
-
-    modifier onlyApprovedToken(address token) {
-        require(_approvedTokens.contains(token), "Token not approved.");
-        _;
-    }
-
-    modifier onlyDenomination(ERC20Token token) {
-        require(token == denomination, "Token not fund denomination.");
-        _;
-    }
-
     modifier postRecordFundValueIfTime {
         _;
         _recordFundValueIfTime();
@@ -195,7 +173,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         Board _board,
         Ticker _ticker,
         Registry _registry,
-        uint _managementFeePerYear,
+        uint _managementFeeRatePerYear,
         uint _minimumLockupDuration,
         uint _minimumPayoutDuration,
         ERC20Token _denomination,
@@ -207,7 +185,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         public
     {
         registry = _registry;
-        managementFeePerYear = _managementFeePerYear;
+        managementFeeRatePerYear = _managementFeeRatePerYear;
         minimumLockupDuration = _minimumLockupDuration;
         minimumPayoutDuration = _minimumPayoutDuration;
 
@@ -259,12 +237,12 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return true;
     }
 
-    function setManagementFee(uint newFee)
+    function setManagementFeeRatePerYear(uint newFee)
         external
         onlyBoard
         returns (bool)
     {
-        managementFeePerYear = newFee;
+        managementFeeRatePerYear = newFee;
         return true;
     }
 
@@ -669,9 +647,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         view
         returns (uint)
     {
-        if (tokenQuantity == 0) {
-            return 0;
-        }
         uint tokenVal = ticker.valueAtRate(token, tokenQuantity, denomination);
         uint supply = totalSupply;
         if (supply == 0) {
@@ -685,13 +660,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         if (fundVal == 0) {
             return 0; // TODO: Work out what to do in case the fund is worthless.
         }
-        uint fractionOfTotal = safeDiv_mpdec(tokenVal, denominationDecimals,
-                                             fundVal, denominationDecimals,
-                                             denominationDecimals);
-        uint fundDecimals = decimals;
-        return safeMul_mpdec(supply, fundDecimals,
-                             fractionOfTotal, denominationDecimals,
-                             fundDecimals);
+        uint denomDec = denominationDecimals;
+        uint fractionOfTotal = safeDiv_dec(tokenVal, fundVal, denomDec);
+        return safeMul_mpdec(supply, decimals,
+                             fractionOfTotal, denomDec,
+                             decimals);
     }
 
     // TODO: Allow this to accept arbitrary contribution tokens.
@@ -704,8 +677,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         public
         onlyRegistry
         onlyNotMember(candidate)
-        noPendingJoin(candidate)
     {
+        require(!membershipRequests[candidate].pending, "Request exists.");
         require(lockupDuration >= minimumLockupDuration, "Lockup too short.");
         require(payoutDuration >= minimumPayoutDuration, "Payout too short.");
         if (setupSchedule) {
@@ -730,13 +703,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
 
         // Emit an event now that we've passed all the criteria for submitting a request to join.
         emit newMembershipRequest(candidate);
-    }
-
-    function setManagerDebitAllowance(ERC20Token token, uint quantity)
-        public
-        onlyMember(msg.sender)
-    {
-        managerDebitAllowance[msg.sender][address(token)] = quantity;
     }
 
     function _currentSchedulePeriodStartTime(RecurringContributionSchedule storage schedule)
@@ -791,7 +757,17 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         public
         onlyMember(msg.sender)
     {
+        require(contributor != msg.sender, "May not reject self.");
         _permittedContributors[msg.sender].remove(contributor);
+    }
+
+    function _validateContributionParties(address contributor, address beneficiary, ERC20Token token)
+        internal
+        view
+    {
+        // TODO: allow contributions in any token, with a more robust contribution permission system.
+        require(token == denomination, "Token not fund denomination.");
+        require(_permittedContributors[beneficiary].contains(contributor), "Contributor unauthorised."); // Implies beneficiary is a fund member.
     }
 
     function _validateSchedule(uint quantity, uint delay, uint startTime, uint terminationTime, uint finalBenefitTime)
@@ -810,9 +786,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function _setContributionSchedule(address contributor, address beneficiary, ERC20Token token,
                                       uint quantity, uint delay, uint startTime, uint terminationTime)
         internal
-        onlyDenomination(token) // TODO: allow contributions in any token, with a more robust contribution permission system.
     {
-        require(_permittedContributors[beneficiary].contains(contributor), "Contributor unauthorised.");
+        _validateContributionParties(contributor, beneficiary, token);
         _validateSchedule(quantity, delay, startTime, terminationTime, memberDetails[beneficiary].finalBenefitTime);
         contributionSchedule[beneficiary][contributor] = RecurringContributionSchedule(token, quantity, delay, terminationTime, 0);
     }
@@ -921,19 +896,14 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
                          uint contribution, uint expectedShares, bool checkShares)
         internal
         onlyMember(beneficiary)
-        onlyDenomination(token) // TODO: allow contributions in any token, with a more robust contribution permission system.
     {
-        require(now < memberDetails[beneficiary].finalBenefitTime,
-                "Plan has terminated.");
-        require(_permittedContributors[beneficiary].contains(contributor),
-                "Contributor unauthorised.");
+        _validateContributionParties(contributor, beneficiary, token);
+        require(now < memberDetails[beneficiary].finalBenefitTime, "Plan has terminated.");
         if (checkShares) {
-            require(expectedShares <= equivalentShares(token, contribution),
-                   "Expected too many shares.");
+            require(expectedShares <= equivalentShares(token, contribution), "Expected too many shares.");
         }
-        require(token.transferFrom(contributor, this, contribution),
-                "Token transfer failed.");
 
+        require(token.transferFrom(contributor, this, contribution), "Token transfer failed.");
         _addOwnedTokenIfBalance(token);
         contributions[beneficiary].push(Contribution(contributor, now, token, contribution));
         _createLockedShares(beneficiary, expectedShares);
@@ -970,17 +940,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
             return 0;
         }
 
-        uint timeSinceUnlock = now - memberUnlockTime;
-        uint dec = decimals;
-        uint fractionElapsed = safeDiv_mpdec(intToDec(timeSinceUnlock, dec), dec,
-                                             intToDec(benefitDuration, dec), dec,
-                                             dec);
-        if (fractionElapsed > unit(dec)) {
+        uint fractionElapsed = safeDiv_mpdec(now - memberUnlockTime, 0,
+                                             benefitDuration, 0,
+                                             decimals);
+        if (fractionElapsed > unit(decimals)) {
             return 0;
         }
-        return totalUnlockable - safeMul_mpdec(fractionElapsed, dec,
-                                               totalUnlockable, dec,
-                                               dec);
+        return totalUnlockable - safeMul_dec(fractionElapsed, totalUnlockable, decimals);
     }
 
     function withdrawBenefits(uint shareQuantity)
@@ -999,12 +965,27 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
         return value;
     }
 
+    function managementFeesAccrued()
+        public
+        view
+        returns (uint)
+    {
+        uint fractionOfYearElapsed = safeDiv_mpdec(now - lastFeeWithdrawalTime, 0,
+                                                   52 weeks, 0,
+                                                   decimals);
+        uint feeFractionOfFund = safeMul_dec(fractionOfYearElapsed, managementFeeRatePerYear, decimals);
+        return lastShareQuantityValue(safeMul_dec(feeFractionOfFund, totalSupply, decimals));
+    }
+
     function withdrawFees()
         public
         onlyManager
         postRecordFundValueIfTime
     {
-        unimplemented();
+        uint fee = managementFeesAccrued();
+        require(denomination.transfer(msg.sender, fee));
+        lastFeeWithdrawalTime = now;
+        managementLog.push(LogEntry(LogType.FeeWithdrawal, now, denomination, fee, msg.sender, 0, ""));
     }
 
     // TODO: Make these manager functions two-stage so that, for example, large
@@ -1055,17 +1036,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     function deposit(ERC20Token token, address depositor, uint quantity, string annotation)
         external
         onlyManager
-        onlyApprovedToken(token)
         postRecordFundValueIfTime
         returns (uint)
     {
         // TODO: check the Governor if this deposit is permitted.
+        require(_approvedTokens.contains(token), "Token not approved.");
         require(bytes(annotation).length > 0, "No annotation.");
-        require(!membershipRequests[depositor].pending, "Depositor is candidate member.");
-        if (_members.contains(depositor)) {
-            require(managerDebitAllowance[depositor][token] >= quantity, "Insufficient direct debit allowance.");
-            managerDebitAllowance[depositor][token] -= quantity;
-        }
+        require(!(_members.contains(depositor) || membershipRequests[depositor].pending), "Depositor is fund member.");
         require(token.allowance(depositor, this) >= quantity, "Insufficient depositor allowance.");
         uint result = token.transferFrom(depositor, this, quantity) ? 0 : 1;
         _addOwnedTokenIfBalance(token);
