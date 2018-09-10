@@ -29,6 +29,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     // Percentage of AUM over one year.
     // TODO: Add a flat rate as well. Maybe also performance fees.
     uint public managementFeePerYear;
+    uint _lastFeeComputationTime;
 
     // Users may not join unless they satisfy these minima. 
     uint public minimumLockupDuration;
@@ -312,7 +313,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     {
         registry = _registry;
     }
-
 
     // The board can only unlock someone's lock so that they
     // can withdraw everything. A more robust system would allow
