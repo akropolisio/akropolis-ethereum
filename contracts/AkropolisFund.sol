@@ -7,12 +7,12 @@ import "./NontransferableShare.sol";
 import "./Registry.sol";
 import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
-import "./utils/IterableSet.sol";
+import "./utils/Set.sol";
 import "./utils/Unimplemented.sol";
 import "./utils/Owned.sol";
 
 contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemented {
-    using IterableSet for IterableSet.Set;
+    using AddressSet for AddressSet.Set;
 
     // The pension fund manger
     address public manager;
@@ -35,18 +35,18 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     uint public minimumPayoutDuration;
 
     // Tokens that this fund is approved to own.
-    IterableSet.Set _approvedTokens;
+    AddressSet.Set _approvedTokens;
 
     // Tokens with nonzero balances.
     // These are tracked for more-efficient computation of gross fund value.
-    IterableSet.Set _ownedTokens;
+    AddressSet.Set _ownedTokens;
 
     // Token in which benefits will be paid.
     ERC20Token public denomination;
     uint public denominationDecimals;
 
     // The set of members of this fund and their details.
-    IterableSet.Set _members;
+    AddressSet.Set _members;
     mapping(address => MemberDetails) public memberDetails;
 
     // Candidate member join requests.
@@ -56,7 +56,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemente
     mapping(address => Contribution[]) public contributions;
 
     // The addresses permitted to set up a contribution schedule for a given beneficiary.
-    mapping(address => IterableSet.Set) _permittedContributors;
+    mapping(address => AddressSet.Set) _permittedContributors;
     // Active contribution schedules. The signature here is (beneficiary => contributor => schedule).
     mapping(address => mapping(address => RecurringContributionSchedule)) public contributionSchedule;
 

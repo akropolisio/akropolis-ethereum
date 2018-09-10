@@ -1,12 +1,12 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
-import "../utils/IterableSet.sol";
+import "../utils/Set.sol";
 
-contract PublicIterableSet {
-    using IterableSet for IterableSet.Set;
+contract PublicAddressSet{
+    using AddressSet for AddressSet.Set;
 
-    IterableSet.Set set;
+    AddressSet.Set set;
 
     function indices(address a)
         public
