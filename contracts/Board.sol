@@ -71,21 +71,21 @@ contract Board is BytesHandler {
         _;
     }
 
-    IterableSet.Set directors;
+    IterableSet.Set _directors;
     Motion[] public motions;
     AkropolisFund public fund;
 
     constructor (address[] initialDirectors)
         public
     {
-        directors.initialise();
+        _directors.initialise();
         uint len = initialDirectors.length;
         // If no directors were given, the sender is the first director.
         if (len == 0) {
-            directors.add(msg.sender);
+            _directors.add(msg.sender);
         } else {
             for (uint i; i < len; i++) {
-                directors.add(initialDirectors[i]);
+                _directors.add(initialDirectors[i]);
             }
         }
     }
@@ -95,7 +95,7 @@ contract Board is BytesHandler {
         view
         returns (bool)
     {
-        return directors.contains(director);
+        return _directors.contains(director);
     }
 
     function numDirectors()
@@ -103,7 +103,7 @@ contract Board is BytesHandler {
         view
         returns (uint)
     {
-        return directors.size();
+        return _directors.size();
     }
 
     function getDirector(uint i)
@@ -111,7 +111,7 @@ contract Board is BytesHandler {
         view
         returns (address)
     {
-        return directors.get(i);
+        return _directors.get(i);
     }
 
     function getDirectors()
@@ -119,15 +119,15 @@ contract Board is BytesHandler {
         view
         returns (address[])
     {
-        return directors.array();
+        return _directors.array();
     }
 
     function resignAsDirector()
         public
         onlyDirectors
     {
-        require(directors.size() > 1, "Sole director cannot resign.");
-        directors.remove(msg.sender);
+        require(_directors.size() > 1, "Sole director cannot resign.");
+        _directors.remove(msg.sender);
         emit Resigned(msg.sender);
         emit DirectorRemoved(msg.sender);
     }
@@ -310,7 +310,7 @@ contract Board is BytesHandler {
         uint dataLength = data.length;
         for (uint i; i < dataLength; i += ADDRESS_BYTES) {
             address director = _extractAddress(data, i);
-            if (directors.add(director)) {
+            if (_directors.add(director)) {
                 emit DirectorAdded(director);
             }
         }
@@ -324,7 +324,7 @@ contract Board is BytesHandler {
         uint dataLength = data.length;
         for (uint i; i < dataLength; i += ADDRESS_BYTES) {
             address director = _extractAddress(data, i);
-            if (directors.remove(director)) {
+            if (_directors.remove(director)) {
                 emit DirectorRemoved(director);
             }
         }
@@ -456,7 +456,7 @@ contract Board is BytesHandler {
         view
         returns (bool)
     {
-        return motion.votesFor > directors.size() / 2;
+        return motion.votesFor > _directors.size() / 2;
     }
 
     function _motionFails(Motion storage motion)
@@ -464,7 +464,7 @@ contract Board is BytesHandler {
         view
         returns (bool)
     {
-        return motion.votesAgainst >= directors.size() / 2;
+        return motion.votesAgainst >= _directors.size() / 2;
     }
 
     function voteForMotion(uint motionID)
