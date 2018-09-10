@@ -42,6 +42,8 @@ contract SafeMultiprecisionDecimalMath {
         internal
         returns (uint)
     {
+        // log_10(2^256) is just over 77.
+        require(decimals < 78, "Unrepresentable unit.");
         return 10 ** decimals;
     }
 
@@ -68,6 +70,24 @@ contract SafeMultiprecisionDecimalMath {
         return x + y;
     }
 
+    function safeAdd_mpdec(uint x, uint xDecimals, uint y, uint yDecimals, uint outDecimals)
+        pure
+        internal
+        returns (uint)
+    {
+        uint highDecimals = xDecimals > yDecimals ? xDecimals : yDecimals;
+
+        if (highDecimals == xDecimals) {
+            return convertPrecision(safeAdd(x, convertPrecision(y, yDecimals, highDecimals)),
+                                    highDecimals,
+                                    outDecimals);
+        }
+        return convertPrecision(safeAdd(convertPrecision(x, xDecimals, highDecimals), y),
+                                highDecimals,
+                                outDecimals);
+    }
+
+
     /**
      * @return True iff subtracting y from x will not overflow in the negative direction.
      */
@@ -89,6 +109,23 @@ contract SafeMultiprecisionDecimalMath {
     {
         require(y <= x, "Unsafe sub.");
         return x - y;
+    }
+
+    function safeSub_mpdec(uint x, uint xDecimals, uint y, uint yDecimals, uint outDecimals)
+        pure
+        internal
+        returns (uint)
+    {
+        uint highDecimals = xDecimals > yDecimals ? xDecimals : yDecimals;
+
+        if (highDecimals == xDecimals) {
+            return convertPrecision(safeSub(x, convertPrecision(y, yDecimals, highDecimals)),
+                                    highDecimals,
+                                    outDecimals);
+        }
+        return convertPrecision(safeSub(convertPrecision(x, xDecimals, highDecimals), y),
+                                highDecimals,
+                                outDecimals);
     }
 
     /**
@@ -121,21 +158,6 @@ contract SafeMultiprecisionDecimalMath {
         return p;
     }
 
-    function convertPrecision(uint x, uint decimalsFrom, uint decimalsTo)
-        pure
-        internal
-        returns (uint)
-    {   
-        if (decimalsFrom == decimalsTo) {
-            return x;
-        }
-        // The guard allows us to eschew safeSub();
-        if (decimalsFrom > decimalsTo) {
-            return safeMul(x, unit(decimalsFrom - decimalsTo));
-        }
-        return safeDiv(x, unit(decimalsTo - decimalsFrom));
-    }
-
     /**
      * @return The result of multiplying x and y, interpreting the operands as fixed-point
      * decimals. Throws an exception in case of overflow.
@@ -159,6 +181,14 @@ contract SafeMultiprecisionDecimalMath {
             return safeDiv(safeMul(x, y), unit(xDecimals));
         }
         return convertPrecision(safeMul(x, y), xDecimals + yDecimals, outDecimals);
+    }
+
+    function safeMul_dec(uint x, uint y, uint decimals)
+        pure
+        internal
+        returns (uint)
+    {
+        return safeMul_mpdec(x, decimals, y, decimals, decimals);
     }
 
     /**
@@ -202,6 +232,29 @@ contract SafeMultiprecisionDecimalMath {
             return safeDiv(safeMul(x, unit(yDecimals)), y);
         }
         return convertPrecision(safeDiv(safeMul(x, unit(yDecimals)), y), xDecimals, outputDecimals);
+    }
+
+    function safeDiv_dec(uint x, uint y, uint decimals)
+        pure
+        internal
+        returns (uint)
+    {
+        return safeDiv_mpdec(x, decimals, y, decimals, decimals);
+    }
+
+    function convertPrecision(uint x, uint decimalsFrom, uint decimalsTo)
+        pure
+        internal
+        returns (uint)
+    {   
+        if (decimalsFrom == decimalsTo) {
+            return x;
+        }
+        // The guard allows us to eschew safeSub();
+        if (decimalsFrom > decimalsTo) {
+            return safeMul(x, unit(decimalsFrom - decimalsTo));
+        }
+        return safeDiv(x, unit(decimalsTo - decimalsFrom));
     }
 
     /**
