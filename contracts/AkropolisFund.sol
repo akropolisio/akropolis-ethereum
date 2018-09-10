@@ -25,9 +25,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
     // The registry that the fund will be shown on
     Registry public registry;
 
-    // Percentage of AUM over one year.
-    // TODO: Add a flat rate as well. Maybe also performance fees.
-    uint public managementFeeRatePerYear;
+    // TODO: Performance fees.
+    uint public managementFeeRatePerYear; // Percentage of AUM over one year.
+    uint public managementFlatFeePerYear; // A quantity of the fund's denominating asset.
     uint public lastFeeWithdrawalTime;
 
     // Users may not join unless they satisfy these minima. 
@@ -169,6 +169,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         _recordFundValueIfTime();
     }
 
+    // TODO: constructor and setters for flat fee rate, and board updates for such setters.
     constructor(
         Board _board,
         Ticker _ticker,
@@ -214,8 +215,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         onlyBoard
         returns (bool)
     {
+        // First send the accrued fees to the previous manager,
+        // which also implicitly resets the accrued fees for the new one.
+        _withdrawManagementFees(managementFeesAccrued());
+
         registry.updateManager(manager, newManager);
         manager = newManager;
+
         return true;
     }
 
@@ -974,18 +980,35 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
                                                    52 weeks, 0,
                                                    decimals);
         uint feeFractionOfFund = safeMul_dec(fractionOfYearElapsed, managementFeeRatePerYear, decimals);
-        return lastShareQuantityValue(safeMul_dec(feeFractionOfFund, totalSupply, decimals));
+        uint percentageFee = lastShareQuantityValue(safeMul_dec(feeFractionOfFund, totalSupply, decimals));
+        uint denomDec = denominationDecimals;
+        uint flatFee = safeMul_mpdec(fractionOfYearElapsed, decimals,
+                                     managementFlatFeePerYear, denomDec,
+                                     denomDec);
+        return safeAdd(flatFee, percentageFee);
     }
 
-    function withdrawFees()
-        public
-        onlyManager
+    function _withdrawManagementFees(uint fees)
+        internal
         postRecordFundValueIfTime
     {
-        uint fee = managementFeesAccrued();
-        require(denomination.transfer(msg.sender, fee));
+        if (fees > 0) {
+            address beneficiary = manager;
+            ERC20Token denom = denomination;
+            require(denom.transfer(beneficiary, fees), "Transfer failed.");
+            _removeOwnedTokenIfNoBalance(denom);
+            managementLog.push(LogEntry(LogType.FeeWithdrawal, now, denom, fees, beneficiary, 0, ""));
+        }
         lastFeeWithdrawalTime = now;
-        managementLog.push(LogEntry(LogType.FeeWithdrawal, now, denomination, fee, msg.sender, 0, ""));
+    }
+
+    function withdrawManagementFees(uint expectedFees)
+        public
+        onlyManager
+    {
+        uint fees = managementFeesAccrued();
+        require(expectedFees <= fees, "Fees less than expected.");
+        _withdrawManagementFees(fees);
     }
 
     // TODO: Make these manager functions two-stage so that, for example, large
