@@ -29,6 +29,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
     uint public managementFeeRatePerYear; // Percentage of AUM over one year.
     uint public managementFlatFeePerYear; // A quantity of the fund's denominating asset.
     uint public lastFeeWithdrawalTime;
+    bool public isChargingFees; // Whether to award the current manager fees.
 
     // Users may not join unless they satisfy these minima. 
     uint public minimumLockupDuration;
@@ -175,6 +176,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         Ticker _ticker,
         Registry _registry,
         uint _managementFeeRatePerYear,
+        uint _managementFlatFeePerYear,
         uint _minimumLockupDuration,
         uint _minimumPayoutDuration,
         ERC20Token _denomination,
@@ -185,8 +187,14 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         NontransferableShare(_name, _symbol) // Internal shares are managed as a non-transferrable ERC20 token
         public
     {
+
         registry = _registry;
+
+        require(_managementFeeRatePerYear <= unit(decimals), "Fee exceeds 100%");
         managementFeeRatePerYear = _managementFeeRatePerYear;
+        managementFlatFeePerYear = _managementFlatFeePerYear;
+        isChargingFees = false;
+
         minimumLockupDuration = _minimumLockupDuration;
         minimumPayoutDuration = _minimumPayoutDuration;
 
@@ -210,18 +218,44 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         registry.addFund(msg.sender);
     }
 
-    function setManager(address newManager) 
+    function _updateFeesAndPayout()
+        internal
+    {
+        if (isChargingFees) {
+            // First send the accrued fees to the previous manager,
+            // which also implicitly resets the accrued fees for the new one.
+            _withdrawManagementFees(managementFeesAccrued());
+        } else {
+            lastFeeWithdrawalTime = now;
+        }
+    }
+
+    function setManager(address newManager, bool chargeFees, bool payoutFees)
         external
         onlyBoard
         returns (bool)
     {
-        // First send the accrued fees to the previous manager,
-        // which also implicitly resets the accrued fees for the new one.
-        _withdrawManagementFees(managementFeesAccrued());
+        if (payoutFees) {
+            _updateFeesAndPayout();
+        }
+        isChargingFees = chargeFees && newManager != address(0);
 
         registry.updateManager(manager, newManager);
         manager = newManager;
+        return true;
+    }
 
+    function resignAsManager(bool collectFees)
+        external
+        onlyManager
+        returns (bool)
+    {
+        if (collectFees) {
+            _updateFeesAndPayout();
+        }
+        isChargingFees = false;
+        registry.updateManager(manager, address(0));
+        manager = address(0);
         return true;
     }
 
@@ -243,13 +277,21 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         return true;
     }
 
-    function setManagementFeeRatePerYear(uint newFee)
+    function setManagementFees(uint feeRate, uint flatFee, bool payoutFees)
         external
         onlyBoard
         returns (bool)
     {
-        managementFeeRatePerYear = newFee;
-        return true;
+        if (feeRate <= unit(decimals)) {
+            if (payoutFees) {
+                _updateFeesAndPayout();
+            }
+            isChargingFees = feeRate + flatFee != 0;
+            managementFeeRatePerYear = feeRate;
+            managementFlatFeePerYear = flatFee;
+            return true;
+        }
+        return false;
     }
 
     function setMinimumLockupDuration(uint newLockupDuration)

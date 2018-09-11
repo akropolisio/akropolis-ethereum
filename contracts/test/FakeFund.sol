@@ -12,11 +12,11 @@ contract FakeFund {
         return true;
     }
 
-    function setManagementFeeRatePerYear(uint fee)
+    function setManagementFees(uint feeRate, uint flatFee, bool payoutFees)
         external
         returns (bool)
     {
-        emit SetManagementFeeRatePerYear(fee);
+        emit SetManagementFees(feeRate, flatFee, payoutFees);
         return true;
     }
 
@@ -77,7 +77,7 @@ contract FakeFund {
     }
 
     event SetManager(address indexed manager);
-    event SetManagementFeeRatePerYear(uint indexed fee);
+    event SetManagementFees(uint indexed feeRate, uint indexed flatFee, bool indexed payoutFees);
     event SetMinimumLockupDuration(uint indexed term);
     event SetMinimumPayoutDuration(uint indexed term);
     event SetDenomination(address indexed token);

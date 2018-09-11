@@ -4,10 +4,9 @@ pragma experimental "v0.5.0";
 
 contract BytesHandler {
 
-    // TODO: Investigate if these are made more efficient by direct CALLDATA extraction.
-
     uint constant UINT_BYTES = 32;
     uint constant ADDRESS_BYTES = 20;
+    uint constant BOOL_BYTES = 1;
 
     function _extractUint(bytes b, uint offset)
         pure
@@ -59,4 +58,11 @@ contract BytesHandler {
         return addresses;
     }
 
+    function _extractBool(bytes b, uint offset)
+        pure
+        internal
+        returns (bool)
+    {
+        return b[offset] != 0;
+    }
 }

@@ -15,7 +15,7 @@ contract Board is BytesHandler {
         RemoveDirectors,
         SetManager,
         SetContributionManager,
-        SetManagementFeeRatePerYear,
+        SetManagementFees,
         SetMinimumLockupDuration,
         SetMinimumPayoutDuration,
         SetDenomination,
@@ -248,8 +248,8 @@ contract Board is BytesHandler {
             result = _executeAddDirectors(data);
         } else if (motionType == MotionType.RemoveDirectors) {
             result = _executeRemoveDirectors(data);
-        } else if (motionType == MotionType.SetManagementFeeRatePerYear) {
-            result = _executeSetManagementFeeRatePerYear(data);
+        } else if (motionType == MotionType.SetManagementFees) {
+            result = _executeSetManagementFees(data);
         } else if (motionType == MotionType.SetMinimumLockupDuration) {
             result = _executeSetMinimumLockupDuration(data);
         } else if (motionType == MotionType.SetMinimumPayoutDuration) {
@@ -331,11 +331,14 @@ contract Board is BytesHandler {
         return true;
     }
 
-    function _executeSetManagementFeeRatePerYear(bytes data)
+    function _executeSetManagementFees(bytes data)
         internal
         returns (bool)
     {
-        return fund.setManagementFeeRatePerYear(_extractUint(data, 0));
+        uint feeRate = _extractUint(data, 0);
+        uint flatFee = _extractUint(data, ADDRESS_BYTES);
+        bool payoutFees = _extractBool(data, ADDRESS_BYTES + 1);
+        return fund.setManagementFees(feeRate, flatFee, payoutFees);
     }
 
     function _executeSetMinimumLockupDuration(bytes data)
