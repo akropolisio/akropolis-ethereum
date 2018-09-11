@@ -915,13 +915,6 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         _createLockedShares(beneficiary, expectedShares);
     }
 
-    function makeContribution(ERC20Token token, uint contribution, uint expectedShares)
-        public
-        postRecordFundValueIfTime
-    {
-        _contribute(msg.sender, msg.sender, token, contribution, expectedShares, true);
-    }
-
     function makeContributionFor(address beneficiary, ERC20Token token, uint contribution, uint expectedShares)
         public
         postRecordFundValueIfTime
