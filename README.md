@@ -6,28 +6,30 @@
 
 The goal of the MVP is to demonstrate how the core components and network participants interact. Below are a few defined journeys that build on one another to showcase this interaction as a progression of events.
  
-## User Journeys
+# User Journeys
 
 
-### Functionality: Pension Fund Creation
-### User Type: Sponsor
+### Functionality "Pension Fund Creation" by User Type "Sponsor"
   - Create a Pension Fund
   - Complete descriptive fields, set lockup and fees
   - Leave Manager and Directors addresses blank
     - Automatically assigned to the Sponsor
   - Fee requirements 
     - Will have necessary fee balances ahead of running the demo. This will ensure we are not wasting time waiting for transactions to be completed
+  - Deploy board and fund
+  - Stake AKT
+  - Select “View Funds” menu item
+  - Select newly created fund and view fund detail 
 
-### Functionality: Initial Asset Allocation
-### User Type: Manager
+
+### Functionality "Initial Allocation" by User Type "Manager"
   - Setup a transfer
     - View Director approved investible tokens
     - Select quantity, address, transfer in, approve
   - View Fund detail
     - Change should be reflected
     
-### Functionality: Join a Pension Fund & Setup Recurring Contributions
-### User Type: Beneficiary
+### Functionality "Join a Pension Fund & Setup Recurring Contributions" by User Type "Beneficiary"
   - Switch windows to the Manager screen
     - View join request
     - Accept join request
