@@ -4,11 +4,8 @@
 
 ![Akropolis](https://pbs.twimg.com/profile_banners/935139646224371712/1539031201/1500x500)
 
-
-# User Journeys
  
-
-## Journeys
+## User Journeys
 
 
 ### Functionality: Pension Fund Creation
