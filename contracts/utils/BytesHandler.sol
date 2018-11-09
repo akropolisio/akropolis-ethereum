@@ -4,11 +4,20 @@ pragma experimental "v0.5.0";
 
 contract BytesHandler {
 
+    // TODO: Investigate if these are made more efficient by direct CALLDATA extraction.
+
+<<<<<<< HEAD
+<<<<<<< HEAD
     uint constant UINT_BYTES = 32;
     uint constant ADDRESS_BYTES = 20;
-    uint constant BOOL_BYTES = 1;
 
     function _extractUint(bytes b, uint offset)
+=======
+    function getUint(bytes b, uint offset)
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+=======
+    function getUint(bytes b, uint offset)
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
         pure
         internal
         returns (uint)
@@ -20,6 +29,8 @@ contract BytesHandler {
         return uint(result);
     }
 
+<<<<<<< HEAD
+<<<<<<< HEAD
     function _extractUints(bytes b, uint n, uint offset)
         pure
         internal
@@ -34,6 +45,12 @@ contract BytesHandler {
     }
 
     function _extractAddress(bytes b, uint offset)
+=======
+    function getAddress(bytes b, uint offset)
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+=======
+    function getAddress(bytes b, uint offset)
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
         pure
         internal
         returns (address)
@@ -58,11 +75,4 @@ contract BytesHandler {
         return addresses;
     }
 
-    function _extractBool(bytes b, uint offset)
-        pure
-        internal
-        returns (bool)
-    {
-        return b[offset] != 0;
-    }
 }

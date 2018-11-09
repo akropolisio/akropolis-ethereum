@@ -1,17 +1,16 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
-
-library AddressSet {
-    using AddressSet for AddressSet.Set;
+library IterableSet {
+    using IterableSet for IterableSet.Set;
 
     struct Set {
         mapping(address => uint) indices;
         address[] items;
     }
 
-    modifier assertInitialised(Set storage s) {
-        require(s.isInitialised(), "Set uninitialised.");
+    modifier mustBeInitialised(Set storage s) {
+        require(s.isInitialised(), "Set is uninitialised.");
         _;
     }
 
@@ -27,31 +26,13 @@ library AddressSet {
         view
         returns (bool)
     {
-<<<<<<< HEAD:contracts/utils/Set.sol
-        return s.items.length != 0;
-    }
-
-    function destroy(Set storage s)
-        internal
-        assertInitialised(s)
-    {
-        uint length = s.items.length;
-
-        for (uint i; i < length; i++) {
-            delete s.indices[s.items[i]];
-            delete s.items[i];
-        }
-
-        s.items.length = 0;
-=======
         return s.items.length != 0 && s.items[0] == 0;
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund:contracts/utils/IterableSet.sol
     }
 
     function size(Set storage s)
         internal
         view
-        assertInitialised(s)
+        mustBeInitialised(s)
         returns (uint)
     {
         return s.items.length - 1;
@@ -60,7 +41,7 @@ library AddressSet {
     function contains(Set storage s, address a)
         internal
         view
-        assertInitialised(s)
+        mustBeInitialised(s)
         returns (bool)
     {
         return s.indices[a] != 0;
@@ -69,30 +50,16 @@ library AddressSet {
     function get(Set storage s, uint i)
         internal
         view
-        assertInitialised(s)
+        mustBeInitialised(s)
         returns (address)
     {
-        uint index = i + 1;
-        require(index < s.items.length, "Index out of range.");
-        return s.items[index];
-    }
-
-    function array(Set storage s)
-        internal
-        view
-        assertInitialised(s)
-        returns (address[])
-    {
-        address[] memory itemlist = new address[](s.items.length - 1);
-        for (uint i = 1; i < s.items.length; i++) {
-            itemlist[i-1] = s.items[i];
-        }
-        return itemlist;
+        require(i < s.items.length - 1, "Set index out of range.");
+        return s.items[i + 1];
     }
 
     function add(Set storage s, address a)
         internal
-        assertInitialised(s)
+        mustBeInitialised(s)
         returns (bool)
     {
         if (s.contains(a)) {
@@ -105,21 +72,16 @@ library AddressSet {
 
     function remove(Set storage s, address a)
         internal
-        assertInitialised(s)
+        mustBeInitialised(s)
         returns (bool)
     {
         if (s.contains(a)) {
+            // Find the index of `k` and swap it with the last item, remove last item
             uint newLength = s.items.length - 1;
-            address swappee = s.items[newLength];
-            uint oldIndex = s.indices[a];
-
-            // Overwrite the removed item with the last one, then shrink the list.
-            s.items[oldIndex] = swappee;
-            s.indices[swappee] = oldIndex;
+            s.items[s.indices[a]] = s.items[newLength]; 
             delete s.items[newLength];
             s.items.length--;
             delete s.indices[a];
-
             return true;
         }
         return false;
@@ -127,17 +89,14 @@ library AddressSet {
 
     function pop(Set storage s)
         internal
-        assertInitialised(s)
+        mustBeInitialised(s)
         returns (address)
     {   
         uint len = s.items.length - 1;
-        require(len > 0, "Popped empty set.");
+        require(len > 1, "Cannot pop from empty Set.");
         address item = s.items[len];
-
         delete s.items[len];
         delete s.indices[item];
-        s.items.length--;
-
         return item;
     }
 }

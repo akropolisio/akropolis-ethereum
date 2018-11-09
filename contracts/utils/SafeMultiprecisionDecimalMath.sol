@@ -27,7 +27,6 @@ operands.
 
 
 pragma solidity 0.4.24;
-pragma experimental "v0.5.0";
 
 
 /**
@@ -76,7 +75,6 @@ contract SafeMultiprecisionDecimalMath {
         returns (uint)
     {
         uint highDecimals = xDecimals > yDecimals ? xDecimals : yDecimals;
-
         if (highDecimals == xDecimals) {
             return convertPrecision(safeAdd(x, convertPrecision(y, yDecimals, highDecimals)),
                                     highDecimals,
@@ -86,7 +84,6 @@ contract SafeMultiprecisionDecimalMath {
                                 highDecimals,
                                 outDecimals);
     }
-
 
     /**
      * @return True iff subtracting y from x will not overflow in the negative direction.
@@ -117,7 +114,6 @@ contract SafeMultiprecisionDecimalMath {
         returns (uint)
     {
         uint highDecimals = xDecimals > yDecimals ? xDecimals : yDecimals;
-
         if (highDecimals == xDecimals) {
             return convertPrecision(safeSub(x, convertPrecision(y, yDecimals, highDecimals)),
                                     highDecimals,

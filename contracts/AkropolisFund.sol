@@ -1,6 +1,8 @@
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
+<<<<<<< HEAD
+<<<<<<< HEAD
 import "./Board.sol";
 import "./Ticker.sol";
 import "./NontransferableShare.sol";
@@ -8,10 +10,25 @@ import "./Registry.sol";
 import "./interfaces/PensionFund.sol";
 import "./interfaces/ERC20Token.sol";
 import "./utils/Set.sol";
+import "./utils/Unimplemented.sol";
 import "./utils/Owned.sol";
 
-contract AkropolisFund is Owned, PensionFund, NontransferableShare {
+contract AkropolisFund is Owned, PensionFund, NontransferableShare, Unimplemented {
     using AddressSet for AddressSet.Set;
+=======
+import "./interfaces/PensionFund.sol";
+import "./interfaces/ERC20Token.sol";
+=======
+import "./interfaces/PensionFund.sol";
+import "./interfaces/ERC20Token.sol";
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+import "./utils/IterableSet.sol";
+import "./Board.sol";
+
+// The fund itself should have non-transferrable shares which represent share in the fund.
+contract AkropolisFund is PensionFund {
+    using IterableSet for IterableSet.Set;
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
 
     // The pension fund manger
     address public manager;
@@ -25,15 +42,21 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
     // The registry that the fund will be shown on
     Registry public registry;
 
-    // TODO: Performance fees.
-    uint public managementFeeRatePerYear; // Percentage of AUM over one year.
-    uint public managementFlatFeePerYear; // A quantity of the fund's denominating asset.
-    uint public lastFeeWithdrawalTime;
-    bool public isChargingFees; // Whether to award the current manager fees.
+    // Percentage of AUM over one year.
+    // TODO: Add a flat rate as well. Maybe also performance fees.
+    uint public managementFeePerYear;
 
+<<<<<<< HEAD
     // Users may not join unless they satisfy these minima. 
     uint public minimumLockupDuration;
     uint public minimumPayoutDuration;
+=======
+    // TODO: set this somewhere
+    uint public minimumTerm;
+<<<<<<< HEAD
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+=======
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
 
     // Tokens that this fund is approved to own.
     AddressSet.Set _approvedTokens;
@@ -43,6 +66,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
     AddressSet.Set _ownedTokens;
 
     // Token in which benefits will be paid.
+<<<<<<< HEAD
+<<<<<<< HEAD
     ERC20Token public denomination;
     uint public denominationDecimals;
 
@@ -52,15 +77,27 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
 
     // Candidate member join requests.
     mapping(address => MembershipRequest) public membershipRequests;
+=======
+=======
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+    ERC20Token public denominatingAsset;
+    
+    // TODO: Make this effectively public with view functions.
+    IterableSet.Set members;
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
 
     // Member historic contributions.
     mapping(address => Contribution[]) public contributions;
 
+<<<<<<< HEAD
     // The addresses permitted to set up a contribution schedule for a given beneficiary.
     mapping(address => AddressSet.Set) _permittedContributors;
+    // Maps the contributors addresses to the set of all addresses for which they have a recurring payment
+    mapping(address => AddressSet.Set) _contributorBeneficiaries;
     // Active contribution schedules. The signature here is (beneficiary => contributor => schedule).
     mapping(address => mapping(address => RecurringContributionSchedule)) public contributionSchedule;
 
+<<<<<<< HEAD
     // Historic record of actions taken by the fund manager.
     LogEntry[] public managementLog;
 
@@ -70,6 +107,24 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
     // Historic price values.
     FundValue[] public fundValues;
 
+=======
+=======
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+    // U9 - View a funds name
+    // The name of the fund
+    string public fundName;
+
+    struct JoinRequest {
+        uint unlockTime;
+        uint initialContribution;
+        uint expectedContribution;
+    }
+
+    mapping(address => JoinRequest) requests;
+<<<<<<< HEAD
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+=======
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     //
     // structs
     //
@@ -115,8 +170,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
     enum LogType {
         Withdrawal,
         Deposit,
-        Approval,
-        FeeWithdrawal
+        Approval
     }
 
     struct LogEntry {
@@ -137,8 +191,15 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
     event Withdraw(address indexed member, uint indexed amount);
     event ApproveToken(address indexed ERC20Token);
     event RemoveToken(address indexed ERC20Token);
+<<<<<<< HEAD
     event newMembershipRequest(address indexed from);
     event newMemberAccepted(address indexed member);
+=======
+    event newJoinRequest(address indexed from);
+<<<<<<< HEAD
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+=======
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
 
     modifier onlyBoard {
         require(msg.sender == address(board()), "Not board.");
@@ -170,13 +231,12 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         _recordFundValueIfTime();
     }
 
-    // TODO: constructor and setters for flat fee rate, and board updates for such setters.
     constructor(
         Board _board,
+        address _manager,
         Ticker _ticker,
         Registry _registry,
-        uint _managementFeeRatePerYear,
-        uint _managementFlatFeePerYear,
+        uint _managementFeePerYear,
         uint _minimumLockupDuration,
         uint _minimumPayoutDuration,
         ERC20Token _denomination,
@@ -187,14 +247,10 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         NontransferableShare(_name, _symbol) // Internal shares are managed as a non-transferrable ERC20 token
         public
     {
-
+<<<<<<< HEAD
+<<<<<<< HEAD
         registry = _registry;
-
-        require(_managementFeeRatePerYear <= unit(decimals), "Fee exceeds 100%");
-        managementFeeRatePerYear = _managementFeeRatePerYear;
-        managementFlatFeePerYear = _managementFlatFeePerYear;
-        isChargingFees = false;
-
+        managementFeePerYear = _managementFeePerYear;
         minimumLockupDuration = _minimumLockupDuration;
         minimumPayoutDuration = _minimumPayoutDuration;
 
@@ -216,47 +272,31 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
 
         // Register the fund on the registry, msg.sender pays for it in AKT.
         registry.addFund(msg.sender);
+        registry.updateManager(address(0x0), _manager);
+        manager = _manager;
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
-    function _updateFeesAndPayout()
-        internal
-    {
-        if (isChargingFees) {
-            // First send the accrued fees to the previous manager,
-            // which also implicitly resets the accrued fees for the new one.
-            _withdrawManagementFees(managementFeesAccrued());
-        } else {
-            lastFeeWithdrawalTime = now;
-        }
-    }
-
-    function setManager(address newManager, bool chargeFees, bool payoutFees)
+    function setManager(address newManager) 
         external
         onlyBoard
-        returns (bool)
     {
-        if (payoutFees) {
-            _updateFeesAndPayout();
-        }
-        isChargingFees = chargeFees && newManager != address(0);
-
         registry.updateManager(manager, newManager);
         manager = newManager;
-        return true;
+<<<<<<< HEAD
     }
 
-    function resignAsManager(bool collectFees)
+    function resignAsManager()
         external
         onlyManager
-        returns (bool)
     {
-        if (collectFees) {
-            _updateFeesAndPayout();
-        }
-        isChargingFees = false;
         registry.updateManager(manager, address(0));
         manager = address(0);
-        return true;
     }
 
     function setContributionManager(address newContributionManager) 
@@ -277,21 +317,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         return true;
     }
 
-    function setManagementFees(uint feeRate, uint flatFee, bool payoutFees)
+    function setManagementFee(uint newFee)
         external
         onlyBoard
         returns (bool)
     {
-        if (feeRate <= unit(decimals)) {
-            if (payoutFees) {
-                _updateFeesAndPayout();
-            }
-            isChargingFees = feeRate + flatFee != 0;
-            managementFeeRatePerYear = feeRate;
-            managementFlatFeePerYear = flatFee;
-            return true;
-        }
-        return false;
+        managementFeePerYear = newFee;
+        return true;
     }
 
     function setMinimumLockupDuration(uint newLockupDuration)
@@ -352,6 +384,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         memberDetails[member].unlockTime = now;
         memberDetails[member].finalBenefitTime = now;
         return true;
+=======
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function approveTokens(ERC20Token[] tokens)
@@ -384,6 +418,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         return _approvedTokens.contains(token);
     }
 
+<<<<<<< HEAD
     function numApprovedTokens()
         external
         view
@@ -449,6 +484,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         return _members.contains(account);
     }
 
+<<<<<<< HEAD
     function numMembers()
         external
         view
@@ -495,6 +531,34 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         returns (uint)
     {
         return memberDetails[member].joinTime;
+    }
+
+    function contributorBeneficiaries(address contributor)
+=======
+    // TODO: Add some structure for managing requests.
+    // U4 - Join a new fund
+    function joinFund(uint lockupPeriod, uint initialContribution, uint expectedShares)
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+=======
+    // TODO: Add some structure for managing requests.
+    // U4 - Join a new fund
+    function joinFund(uint lockupPeriod, uint initialContribution, uint expectedShares)
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+        public
+        view
+        returns(address[])
+    {
+<<<<<<< HEAD
+<<<<<<< HEAD
+        return _contributorBeneficiaries[contributor].array();
+    }
+
+    function getContributorBeneficiary(address contributor, uint index)
+        public
+        view
+        returns(address)
+    {
+        return _contributorBeneficiaries[contributor].get(index);
     }
 
     function permittedContributors(address member)
@@ -628,6 +692,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         return safeDiv_mpdec(fundVal, denomDec,
                              supply, decimals,
                              denomDec);
+=======
+        require(lockupPeriod >= minimumTerm, "Your lockup period is not long enough");
+        emit newJoinRequest(msg.sender);
+        requests[msg.sender] = JoinRequest(lockupPeriod, initialContribution, expectedShares);
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function shareValue()
@@ -643,6 +712,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         view
         returns (uint)
     {
+<<<<<<< HEAD
         (uint value, ) = lastFundValue();
         return _shareValue(value);
     }
@@ -664,6 +734,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         returns (uint)
     {
         return _shareQuantityValue(quantity, shareValue());
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function lastShareQuantityValue(uint quantity)
@@ -671,7 +744,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         view
         returns (uint)
     {
+<<<<<<< HEAD
         return _shareQuantityValue(quantity, lastShareValue());
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function shareValueOf(address member)
@@ -713,6 +790,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         return safeMul_mpdec(supply, decimals,
                              fractionOfTotal, denomDec,
                              decimals);
+=======
+        require(lockupPeriod >= minimumTerm, "Your lockup period is not long enough");
+        emit newJoinRequest(msg.sender);
+        requests[msg.sender] = JoinRequest(lockupPeriod, initialContribution, expectedShares);
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     // TODO: Allow this to accept arbitrary contribution tokens.
@@ -777,6 +859,7 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         public
         postRecordFundValueIfTime
     {
+<<<<<<< HEAD
         require(msg.sender == contributor ||
                 msg.sender == beneficiary ||
                 msg.sender == manager ||
@@ -792,16 +875,23 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         _contribute(contributor, beneficiary, token,
                     schedule.contributionQuantity, expectedShares,
                     true);
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
-    function permitContributor(address contributor)
+    function allowContributor(address contributor)
         public
         onlyMember(msg.sender)
     {
+<<<<<<< HEAD
         _permittedContributors[msg.sender].add(contributor);
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
-    function rejectContributor(address contributor)
+    function disallowContributor(address contributor)
         public
         onlyMember(msg.sender)
     {
@@ -838,6 +928,11 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         _validateContributionParties(contributor, beneficiary, token);
         _validateSchedule(quantity, delay, startTime, terminationTime, memberDetails[beneficiary].finalBenefitTime);
         contributionSchedule[beneficiary][contributor] = RecurringContributionSchedule(token, quantity, delay, terminationTime, 0);
+        AddressSet.Set storage beneficiaries = _contributorBeneficiaries[contributor];
+        if (!beneficiaries.isInitialised()) {
+            beneficiaries.initialise();
+        }
+        beneficiaries.add(beneficiary);
     }
 
     function deleteContributionSchedule(address contributor, address beneficiary)
@@ -845,6 +940,10 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
     {
         require(msg.sender == contributor || msg.sender == beneficiary, "Sender unauthorised.");
         delete contributionSchedule[beneficiary][contributor];
+        AddressSet.Set storage beneficiaries = _contributorBeneficiaries[contributor];
+        if (beneficiaries.isInitialised()) {
+            beneficiaries.remove(beneficiary);
+        }
     }
 
     function setContributionSchedule(address beneficiary, ERC20Token token,
@@ -858,6 +957,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         public
         onlyManager
     {
+<<<<<<< HEAD
+<<<<<<< HEAD
         delete membershipRequests[candidate];
         registry.denyMembershipRequest(candidate);
     }
@@ -869,6 +970,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
     {
         // This is sent from the registry and already deleted on their end
         delete membershipRequests[candidate];
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function _addOwnedTokenIfBalance(ERC20Token token)
@@ -889,6 +993,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
                 _ownedTokens.remove(token);
             }
         }
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function approveMembershipRequest(address candidate)
@@ -896,6 +1003,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         onlyManager
         postRecordFundValueIfTime
     {
+<<<<<<< HEAD
+<<<<<<< HEAD
         MembershipRequest storage request = membershipRequests[candidate];
         require(request.pending, "Request inactive.");
 
@@ -938,6 +1047,12 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
     {
         _createShares(beneficiary, expectedShares);
         memberDetails[beneficiary].totalUnlockable += expectedShares;
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
     
     function _contribute(address contributor, address beneficiary, ERC20Token token,
@@ -961,7 +1076,15 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         public
         postRecordFundValueIfTime
     {
+<<<<<<< HEAD
+<<<<<<< HEAD
         _contribute(msg.sender, beneficiary, token, contribution, expectedShares, true);
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function lockedBenefits(address member)
@@ -969,6 +1092,8 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         view
         returns (uint)
     {
+<<<<<<< HEAD
+<<<<<<< HEAD
         MemberDetails storage details = memberDetails[member];
         uint totalUnlockable = details.totalUnlockable;
         uint memberUnlockTime = details.unlockTime;
@@ -988,6 +1113,9 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
             return 0;
         }
         return totalUnlockable - safeMul_dec(fractionElapsed, totalUnlockable, decimals);
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function withdrawBenefits(uint shareQuantity)
@@ -1004,46 +1132,17 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         uint value = lastShareQuantityValue(shareQuantity);
         denomination.transfer(msg.sender, value);
         return value;
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
-    function managementFeesAccrued()
-        public
-        view
-        returns (uint)
-    {
-        uint fractionOfYearElapsed = safeDiv_mpdec(now - lastFeeWithdrawalTime, 0,
-                                                   52 weeks, 0,
-                                                   decimals);
-        uint feeFractionOfFund = safeMul_dec(fractionOfYearElapsed, managementFeeRatePerYear, decimals);
-        uint percentageFee = lastShareQuantityValue(safeMul_dec(feeFractionOfFund, totalSupply, decimals));
-        uint denomDec = denominationDecimals;
-        uint flatFee = safeMul_mpdec(fractionOfYearElapsed, decimals,
-                                     managementFlatFeePerYear, denomDec,
-                                     denomDec);
-        return safeAdd(flatFee, percentageFee);
-    }
-
-    function _withdrawManagementFees(uint fees)
-        internal
-        postRecordFundValueIfTime
-    {
-        if (fees > 0) {
-            address beneficiary = manager;
-            ERC20Token denom = denomination;
-            require(denom.transfer(beneficiary, fees), "Transfer failed.");
-            _removeOwnedTokenIfNoBalance(denom);
-            managementLog.push(LogEntry(LogType.FeeWithdrawal, now, denom, fees, beneficiary, 0, ""));
-        }
-        lastFeeWithdrawalTime = now;
-    }
-
-    function withdrawManagementFees(uint expectedFees)
+    function withdrawFees()
         public
         onlyManager
+        postRecordFundValueIfTime
     {
-        uint fees = managementFeesAccrued();
-        require(expectedFees <= fees, "Fees less than expected.");
-        _withdrawManagementFees(fees);
+        revert("Unimplimented");
     }
 
     // TODO: Make these manager functions two-stage so that, for example, large
@@ -1075,9 +1174,13 @@ contract AkropolisFund is Owned, PensionFund, NontransferableShare {
         onlyManager
         returns (uint)
     {
+<<<<<<< HEAD
         return _approveWithdrawal(registry.feeToken(), address(registry),
                                   safeMul(registry.userRegistrationFee(), numUsers),
                                   "Membership fee transfers approved.");
+=======
+        revert("Unimplimented");
+>>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function _approveWithdrawal(ERC20Token token, address spender, uint quantity, string annotation)
