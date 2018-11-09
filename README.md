@@ -11,7 +11,7 @@
 ## Journeys
 
 
-1. Fund Creation (Role: Sponsor)
+### Fund Creation (Role: Sponsor)
   1. Create Fund
   2. Complete descriptive fields and set lockup/fee
   3. Leave manager and directors addresses blank
@@ -20,13 +20,13 @@
     1. Will have necessary fee balances ahead of running the demo. This will ensure we are not wasting time waiting for transactions to be completed
 
 
-1. Initial Asset Allocation (Role: FM)
+### Initial Asset Allocation (Role: FM)
   1. Setup a transfer
     1. View director approved investible tokens
     2. Select quantity, address, transfer in, approve
   2. View Fund detail
     1. Change should be reflected
-2. Join a Fund & Setup Recurring Contributions (Role: Individual)
+### Join a Fund & Setup Recurring Contributions (Role: Individual)
   1. Switch windows to the Manager screen
     1. View join request
     2. Accept join request
@@ -35,7 +35,7 @@
   4. View contributions and history
 ## Functionality (by Role) 
 
-Individual
+### Individual
 
 - View available funds & apply to join as an individual
   - Fund detail & composition
@@ -45,7 +45,7 @@ Individual
   - Must be a member
 - View contribution history
 
-Fund Manager
+### Fund Manager
 
 - Create a digital fund
   - Name, symbol, risk, description
@@ -56,17 +56,26 @@ Fund Manager
   - Governed by BOD approved investible tokens
 - Fund Manager approval/rejection of individual join request
 
-Sponsor/Originator 
+### Sponsor/Originator 
 
 - Create a digital fund (as defined above)
 
-Board of Directors
+### Board of Directors
 
 - Initiate a motion
   - set/change manager
     - Only motion that is currently supported
 - Voting on Motions
 
+
+# TODO
+- [ ]  Extended functionality of the Smart contract factory (edited)
+
+- [ ]  implementation of the upgradeable smart contract architecture
+- [ ]  UI/UX buildout on ReactJS
+- [ ]  Oracle interaction protocol
+- [ ]  Kovan Testnet
+- [ ]  Public release Alpha
 
 # Support
 Join our support server at https://discord.gg/GZWaZCP for the latest news and information!
