@@ -11,22 +11,25 @@
 ## Journeys
 
 
-### Fund Creation. User Type: Sponsor.
-  1. Create Fund
-  2. Complete descriptive fields and set lockup/fee
+### Functionality: Pension Fund Creation
+### User Type: Sponsor
+  1. Create a Pension Fund
+  2. Complete descriptive fields, set lockup and fees
   3. Leave manager and directors addresses blank
-    1. Automatically assigned to the sponsor
+    1. Automatically assigned to the Sponsor
   4. Fee requirements 
     1. Will have necessary fee balances ahead of running the demo. This will ensure we are not wasting time waiting for transactions to be completed
 
-### Initial Asset Allocation. User Type: Fund Manager.
+### Functionality: Initial Asset Allocation
+### User Type: Fund Manager
   1. Setup a transfer
-    1. View director approved investible tokens
+    1. View Director approved investible tokens
     2. Select quantity, address, transfer in, approve
   2. View Fund detail
     1. Change should be reflected
     
-### Join a Pension Fund & Setup Recurring Contributions. User Type: Beneficiary
+### Functionality: Join a Pension Fund & Setup Recurring Contributions
+### User Type: Beneficiary
   1. Switch windows to the Manager screen
     1. View join request
     2. Accept join request
