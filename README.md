@@ -13,10 +13,8 @@
   1. Create a Pension Fund
   2. Complete descriptive fields, set lockup and fees
   3. Leave manager and directors addresses blank
-    1. Automatically assigned to the Sponsor
-  4. Fee requirements 
-    1. Will have necessary fee balances ahead of running the demo. This will ensure we are not wasting time waiting for transactions to be completed
-1500x500
+  4. Automatically assigned to the Sponsor
+  5. Fee requirements 
 ### Functionality: Initial Asset Allocation
 ### User Type: Fund Manager
   1. Setup a transfer
