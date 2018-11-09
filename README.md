@@ -3,35 +3,35 @@
 # Akropolis Protocol Implementation
 
 ![Akropolis](banner.png?raw=true)
-
  
 ## User Journeys
 
 
 ### Functionality: Pension Fund Creation
 ### User Type: Sponsor
-  1. Create a Pension Fund
-  2. Complete descriptive fields, set lockup and fees
-  3. Leave manager and directors addresses blank
-  4. Automatically assigned to the Sponsor
-  5. Fee requirements 
-### Functionality: Initial Asset Allocation
-### User Type: Fund Manager
+  - Create a Pension Fund
+  - Complete descriptive fields, set lockup and fees
+  - Leave Manager and Directors addresses blank
+    - Automatically assigned to the Sponsor
+  - Fee requirements 
+    - Will have necessary fee balances ahead of running the demo. This will ensure we are not wasting time waiting for transactions to be completed
 
-  1. Setup a transfer
-    1. View Director approved investible tokens
-    2. Select quantity, address, transfer in, approve
-  2. View Fund detail
-    1. Change should be reflected
+### Functionality: Initial Asset Allocation
+### User Type: Manager
+  - Setup a transfer
+    - View Director approved investible tokens
+    - Select quantity, address, transfer in, approve
+  - View Fund detail
+    - Change should be reflected
     
 ### Functionality: Join a Pension Fund & Setup Recurring Contributions
 ### User Type: Beneficiary
-  1. Switch windows to the Manager screen
-    1. View join request
-    2. Accept join request
-  2. View fund detail (should be approved)
-  3. Setup a recurring contribution
-  4. View contributions and history
+  - Switch windows to the Manager screen
+    - View join request
+    - Accept join request
+  - View fund detail (should be approved)
+  - Setup a recurring contribution
+  - View contributions and history
 
 ## Functionality by User Type 
 
