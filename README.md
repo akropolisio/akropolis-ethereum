@@ -2,7 +2,7 @@
 
 # Akropolis Protocol Implementation
 
-![Akropolis](https://pbs.twimg.com/profile_banners/935139646224371712/1539031201/1500x500)
+![Akropolis](banner.png?raw=true)
 
  
 ## User Journeys
@@ -16,7 +16,7 @@
     1. Automatically assigned to the Sponsor
   4. Fee requirements 
     1. Will have necessary fee balances ahead of running the demo. This will ensure we are not wasting time waiting for transactions to be completed
-
+1500x500
 ### Functionality: Initial Asset Allocation
 ### User Type: Fund Manager
   1. Setup a transfer
