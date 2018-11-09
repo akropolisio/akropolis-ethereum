@@ -1,3 +1,10 @@
+/*
+* The MIT License
+*
+* Copyright (c) 2017-2018 , Akropolis Decentralised Ltd (Gibraltar), http://akropolis.io
+*
+*/
+
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
@@ -19,10 +26,10 @@ contract Registry is Owned {
     uint public userRegistrationFee; // TODO: rename to membershipFee
 
     // The set of addresses approved to create new funds.
-    AddressSet.Set sponsors;
+    AddressSet.Set _sponsors;
 
     // Iterable set of funds
-    AddressSet.Set funds;
+    AddressSet.Set _funds;
 
     // List the funds a user is in
     mapping(address => AddressSet.Set) internal _userFunds;
@@ -44,14 +51,14 @@ contract Registry is Owned {
         feeToken = _feeToken;
         fundRegistrationFee = _fundRegistrationFee;
         userRegistrationFee = _userRegistrationFee;
-        funds.initialise();
-        sponsors.initialise();
+        _funds.initialise();
+        _sponsors.initialise();
         emit NewFundRegistrationFee(_fundRegistrationFee);
         emit NewFeeToken(_feeToken);
     }
 
     modifier onlyRegisteredFund(address fund) {
-        require(funds.contains(fund), "Unregistered fund.");
+        require(_funds.contains(fund), "Unregistered fund.");
         _;
     }
 
@@ -83,14 +90,14 @@ contract Registry is Owned {
         public
         onlyOwner
     {
-        sponsors.add(sponsor);
+        _sponsors.add(sponsor);
     }
 
     function removeSponsor(address sponsor)
         public
         onlyOwner
     {
-        sponsors.remove(sponsor);
+        _sponsors.remove(sponsor);
     }
 
     function isSponsor(address sponsor)
@@ -98,7 +105,7 @@ contract Registry is Owned {
         view
         returns (bool isApproved)
     {
-        return sponsors.contains(sponsor);
+        return _sponsors.contains(sponsor);
     }
 
     function _checkRequestExists(AddressSet.Set storage requests, address fund)
@@ -128,9 +135,9 @@ contract Registry is Owned {
         _withdrawFee(payer, fundRegistrationFee);
 
         // Ensure the fund isn't already listed here
-        require(!funds.contains(msg.sender), "Fund already registered.");
+        require(!_funds.contains(msg.sender), "Fund already registered.");
         // Add the fund to the set
-        funds.add(msg.sender);
+        _funds.add(msg.sender);
         // Emit an event for successfully adding a new fund
         emit NewFund(AkropolisFund(msg.sender));
     }
@@ -222,7 +229,7 @@ contract Registry is Owned {
         onlyOwner
         onlyRegisteredFund(fund)
     {
-        funds.remove(address(fund));
+        _funds.remove(address(fund));
     }
 
     // We should make a more generic way of doing this for other contracts with the same functionality
@@ -241,15 +248,23 @@ contract Registry is Owned {
         returns(uint)
     {
         // Returns the size of the funds, so we can iterate over the list of funds!
-        return funds.size();
+        return _funds.size();
     }
 
-    function fundList()
+    function funds()
         external 
         view 
         returns(address[])
     {
-        return funds.array();
+        return _funds.array();
+    }
+
+    function getFund(uint i)
+        external
+        view
+        returns (AkropolisFund)
+    {
+        return AkropolisFund(_funds.get(i));
     }
 
     function userFundsLength(address user)

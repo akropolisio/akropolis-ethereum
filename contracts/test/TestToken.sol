@@ -1,3 +1,10 @@
+/*
+* The MIT License
+*
+* Copyright (c) 2017-2018 , Akropolis Decentralised Ltd (Gibraltar), http://akropolis.io
+*
+*/
+
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
@@ -5,10 +12,11 @@ import "../interfaces/ERC20Token.sol";
 import "../utils/SafeMultiprecisionDecimalMath.sol";
 
 contract TestToken is ERC20Token, SafeMultiprecisionDecimalMath {
-    constructor(string _symbol, uint total) public {
+    constructor(string _name, string _symbol, uint _totalSupply, uint8 _decimals) public {
+        name = _name;
         symbol = _symbol;
-        decimals = 18;
-        totalSupply = total * (10**uint(decimals));
+        decimals = _decimals;
+        totalSupply = _totalSupply;
         balanceOf[msg.sender] = totalSupply;
         emit Transfer(address(0), msg.sender, totalSupply);
     }
@@ -33,5 +41,4 @@ contract TestToken is ERC20Token, SafeMultiprecisionDecimalMath {
         emit Transfer(from, to, tokens);
         return true;
     }
-
 }

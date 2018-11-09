@@ -1,3 +1,10 @@
+/*
+* The MIT License
+*
+* Copyright (c) 2017-2018 , Akropolis Decentralised Ltd (Gibraltar), http://akropolis.io
+*
+*/
+
 pragma solidity ^0.4.24;
 
 import "../interfaces/ERC20Token.sol";
@@ -12,11 +19,11 @@ contract FakeFund {
         return true;
     }
 
-    function setManagementFees(uint feeRate, uint flatFee, bool payoutFees)
+    function setManagementFee(uint fee) 
         external
         returns (bool)
     {
-        emit SetManagementFees(feeRate, flatFee, payoutFees);
+        emit SetManagementFee(fee);
         return true;
     }
 
@@ -77,7 +84,7 @@ contract FakeFund {
     }
 
     event SetManager(address indexed manager);
-    event SetManagementFees(uint indexed feeRate, uint indexed flatFee, bool indexed payoutFees);
+    event SetManagementFee(uint indexed fee);
     event SetMinimumLockupDuration(uint indexed term);
     event SetMinimumPayoutDuration(uint indexed term);
     event SetDenomination(address indexed token);

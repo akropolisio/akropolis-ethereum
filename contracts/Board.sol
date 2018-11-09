@@ -1,3 +1,10 @@
+/*
+* The MIT License
+*
+* Copyright (c) 2017-2018 , Akropolis Decentralised Ltd (Gibraltar), http://akropolis.io
+*
+*/
+
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
 
@@ -15,7 +22,7 @@ contract Board is BytesHandler {
         RemoveDirectors,
         SetManager,
         SetContributionManager,
-        SetManagementFees,
+        SetManagementFee,
         SetMinimumLockupDuration,
         SetMinimumPayoutDuration,
         SetDenomination,
@@ -248,8 +255,8 @@ contract Board is BytesHandler {
             result = _executeAddDirectors(data);
         } else if (motionType == MotionType.RemoveDirectors) {
             result = _executeRemoveDirectors(data);
-        } else if (motionType == MotionType.SetManagementFees) {
-            result = _executeSetManagementFees(data);
+        } else if (motionType == MotionType.SetManagementFee) {
+            result = _executeSetManagementFee(data);
         } else if (motionType == MotionType.SetMinimumLockupDuration) {
             result = _executeSetMinimumLockupDuration(data);
         } else if (motionType == MotionType.SetMinimumPayoutDuration) {
@@ -331,14 +338,11 @@ contract Board is BytesHandler {
         return true;
     }
 
-    function _executeSetManagementFees(bytes data)
+    function _executeSetManagementFee(bytes data)
         internal
         returns (bool)
     {
-        uint feeRate = _extractUint(data, 0);
-        uint flatFee = _extractUint(data, ADDRESS_BYTES);
-        bool payoutFees = _extractBool(data, ADDRESS_BYTES + 1);
-        return fund.setManagementFees(feeRate, flatFee, payoutFees);
+        return fund.setManagementFee(_extractUint(data, 0));
     }
 
     function _executeSetMinimumLockupDuration(bytes data)
