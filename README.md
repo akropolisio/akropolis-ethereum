@@ -1,8 +1,8 @@
 
 
-# Akropolis Smart Contracts
+# Akropolis Protocol Implementation
 
-A minimal implementation of a decentralised pension fund infrastructure.
+![Akropolis](https://bitcoinvietnamnews.com/wp-content/uploads/2018/08/akropolis-coin.jpg)
 
 
 
