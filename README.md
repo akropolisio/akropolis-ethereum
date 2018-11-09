@@ -37,35 +37,34 @@
 
 ### Individual
 
-- View available funds & apply to join as an individual
-  - Fund detail & composition
-  - Apply to join
-- View funds invested in
-- Make a contribution (one time or recurring)
-  - Must be a member
-- View contribution history
+ 1. View available funds & apply to join as an individual
+   1. Fund detail & composition
+   2. Apply to join
+ 2. View funds invested in
+ 3. Make a contribution (one time or recurring)
+   1. Must be a member
+ 4. View contribution history
 
 ### Fund Manager
 
-- Create a digital fund
-  - Name, symbol, risk, description
-  - Lockup, Management Fee
-  - Manger & BOD assignment
-  - Deploy contract
-- Move tokens in/out of fund
-  - Governed by BOD approved investible tokens
-- Fund Manager approval/rejection of individual join request
+ 1. Create a digital fund
+   1. Name, symbol, risk, description
+   2. Lockup, Management Fee
+   3. Manger & BOD assignment
+   4. Deploy contract
+2. Move tokens in/out of fund
+  1. Governed by BOD approved investible tokens
+  2. Fund Manager approval/rejection of individual join request
 
 ### Sponsor/Originator 
 
-- Create a digital fund (as defined above)
+1. Create a digital fund (as defined above)
 
 ### Board of Directors
 
-- Initiate a motion
-  - set/change manager
-    - Only motion that is currently supported
-- Voting on Motions
+1. Initiate a motion
+  1. set/change manager (Only motion that is currently supported)
+  2. Voting on Motions
 
 
 # TODO
