@@ -1,32 +1,13 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
 pragma solidity ^0.4.24;
 pragma experimental "v0.5.0";
-=======
-=======
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-pragma solidity ^0.4.23;
-// TODO: Add licence header and file description info.
-// TODO: Natural specification.
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
 
 import "./utils/Set.sol";
 import "./utils/BytesHandler.sol";
-<<<<<<< HEAD
-<<<<<<< HEAD
 import "./interfaces/ERC20Token.sol";
 import "./AkropolisFund.sol";
 
 contract Board is BytesHandler {
     using AddressSet for AddressSet.Set;
-=======
-=======
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-import "./interfaces/PensionFund.sol";
-
-contract Board is BytesHandler {
-    using IterableSet for IterableSet.Set;
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
 
     enum MotionType {
         SetFund,
@@ -46,15 +27,27 @@ contract Board is BytesHandler {
 
     enum VoteType {
         Absent,
+        Abstain,
         Yes,
         No
     }
 
+    /*
+     * Motions are created in the Active state.
+     * Available transitions:
+     *      Active -> Expired   (time passes)
+     *      Active -> Cancelled (initiator cancels motion)
+     *      Active -> Failed    (enough directors vote against)
+     *      Active -> Passed    (enough directors vote in favour)
+     *      Passed -> Executed  (execution function is called)
+     *      Passed -> ExecutionFailed ( :( )
+     */
     enum MotionStatus {
         Cancelled,
         Active,
-        Executed,
+        Passed,
         Failed,
+        Executed,
         ExecutionFailed,
         Expired
     }
@@ -63,16 +56,8 @@ contract Board is BytesHandler {
         uint id;
         MotionType motionType;
         MotionStatus status;
-<<<<<<< HEAD
-<<<<<<< HEAD
         address initiator;
         uint timestamp;
-=======
-        address creator;
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-=======
-        address creator;
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
         uint expiry;
         uint votesFor;
         uint votesAgainst;
@@ -86,32 +71,14 @@ contract Board is BytesHandler {
         _;
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     AddressSet.Set _directors;
     Motion[] public motions;
     AkropolisFund public fund;
-=======
-    IterableSet.Set directors;
-    Motion[] motions;
-    PensionFund fund;
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-=======
-    IterableSet.Set directors;
-    Motion[] motions;
-    PensionFund fund;
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
 
     constructor (address[] initialDirectors)
         public
     {
-<<<<<<< HEAD
-<<<<<<< HEAD
         _directors.initialise();
-=======
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-=======
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
         uint len = initialDirectors.length;
         // If no directors were given, the sender is the first director.
         if (len == 0) {
@@ -121,13 +88,6 @@ contract Board is BytesHandler {
                 _directors.add(initialDirectors[i]);
             }
         }
-    }
-
-    function unimplimented() 
-        internal
-        pure
-    {
-        revert("Unimplimented.");
     }
 
     function isDirector(address director)
@@ -189,11 +149,7 @@ contract Board is BytesHandler {
         return motion.vote[director];
     }
 
-<<<<<<< HEAD
     function _getMotion(uint motionID)
-=======
-    function getActiveMotion(uint motionID)
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
         internal
         view
         returns (Motion storage)
@@ -202,7 +158,7 @@ contract Board is BytesHandler {
         return motions[motionID];
     }
 
-    function getActiveMotion(uint motionID)
+    function _getActiveMotion(uint motionID)
         internal
         view
         returns (Motion storage)
@@ -212,15 +168,7 @@ contract Board is BytesHandler {
         return motion;
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     function _isVotable(MotionStatus status)
-=======
-    function isValidMotionType(MotionType motionType)
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-=======
-    function isValidMotionType(MotionType motionType)
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
         internal
         pure
         returns (bool)
@@ -248,7 +196,6 @@ contract Board is BytesHandler {
         onlyDirectors
         returns (uint)
     {
-<<<<<<< HEAD
         require(data.length > 0, "No data.");
         require(bytes(description).length > 0, "No description.");
         uint id = _pushMotion(motionType, MotionStatus.Active, msg.sender,
@@ -256,15 +203,6 @@ contract Board is BytesHandler {
         emit MotionInitiated(id);
         return id;
     }
-=======
-        // TODO: Add a test to ensure this thing throws if motionType not in range.
-        // TODO: Test that motion type ends up mapping to the appropriate motion type.
-        // TODO: Test that duration is properly set for all motion types.
-
-        require(isValidMotionType(motionType), "Invalid motion type.");
-        require(data.length > 0, "Data must not be empty.");
-        uint numMotions = motions.length;
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
 
     function _pushMotion(MotionType motionType, MotionStatus status,
                          address initiator, uint duration,
@@ -351,34 +289,24 @@ contract Board is BytesHandler {
         return true;
     }
 
-    function executeSetManager(bytes data)
+    function _executeSetManager(bytes data)
         internal
         returns (bool)
     {
-        unimplimented();
+        return fund.setManager(_extractAddress(data, 0));
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     function _executeSetContributionManager(bytes data)
         internal
         returns (bool)
     {
         return fund.setContributionManager(_extractAddress(data, 0));
-=======
-    function executeSetManager(bytes data)
-        internal
-        returns (bool)
-    {
-        unimplimented();
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
-    function executeAddDirectors(bytes data)
+    function _executeAddDirectors(bytes data)
         internal
         returns (bool)
     {
-<<<<<<< HEAD
         uint dataLength = data.length;
         for (uint i; i < dataLength; i += ADDRESS_BYTES) {
             address director = _extractAddress(data, i);
@@ -387,21 +315,12 @@ contract Board is BytesHandler {
             }
         }
         return true;
-=======
-    function executeAddDirectors(bytes data)
-        internal
-        returns (bool)
-    {
-        unimplimented();
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
-    /// @return ID of the initiated motion.
-    function executeRemoveDirectors(bytes data)
+    function _executeRemoveDirectors(bytes data)
         internal
         returns (bool)
     {
-<<<<<<< HEAD
         uint dataLength = data.length;
         for (uint i; i < dataLength; i += ADDRESS_BYTES) {
             address director = _extractAddress(data, i);
@@ -446,78 +365,6 @@ contract Board is BytesHandler {
     {
         return fund.resetTimeLock(_extractAddress(data, 0));
     }
-=======
-        unimplimented();
-    }
-
-    function executeSetFee(bytes data)
-        internal
-        returns (bool)
-    {
-        unimplimented();
-    }
-
-    function executeSetTimeLock(bytes data)
-        internal
-        returns (bool)
-    {
-        unimplimented();
-    }
-
-    function executeApproveTokens(bytes data)
-        internal
-        returns (bool)
-    {
-        unimplimented();
-    }
-
-=======
-        unimplimented();
-    }
-
-    /// @return ID of the initiated motion.
-    function executeRemoveDirectors(bytes data)
-        internal
-        returns (bool)
-    {
-        unimplimented();
-    }
-
-    function executeSetFee(bytes data)
-        internal
-        returns (bool)
-    {
-        unimplimented();
-    }
-
-    function executeSetTimeLock(bytes data)
-        internal
-        returns (bool)
-    {
-        unimplimented();
-    }
-
-    function executeApproveTokens(bytes data)
-        internal
-        returns (bool)
-    {
-        unimplimented();
-    }
-
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-    function executeDisapproveTokens(bytes data)
-        internal
-        returns (bool)
-    {
-        unimplimented();
-    }
-
-    function executeMotion(uint motionID)
-        internal
-<<<<<<< HEAD
-    {
-        Motion storage motion = getActiveMotion(motionID);
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
 
     function _executeSetRecomputationDelay(bytes data)
         internal
@@ -525,12 +372,7 @@ contract Board is BytesHandler {
     {
         return fund.setRecomputationDelay(_extractUint(data, 0));
     }
-=======
-    {
-        Motion storage motion = getActiveMotion(motionID);
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
 
-<<<<<<< HEAD
     function _executeApproveTokens(bytes data)
         internal
         returns (bool)
@@ -553,37 +395,12 @@ contract Board is BytesHandler {
             tokens[i] = ERC20Token(_extractAddress(data, i*ADDRESS_BYTES));
         }
         return fund.disapproveTokens(tokens);
-=======
-        if (motionType == MotionType.SetManager) {
-            result = executeSetManager(data);
-        } else if (motionType == MotionType.AddDirectors) {
-            result = executeAddDirectors(data);
-        } else if (motionType == MotionType.RemoveDirectors) {
-            result = executeRemoveDirectors(data);
-        } else if (motionType == MotionType.SetFee) {
-            result = executeSetFee(data);
-        } else if (motionType == MotionType.SetTimeLock) {
-            result = executeSetTimeLock(data);
-        } else if (motionType == MotionType.ApproveTokens) {
-            result = executeApproveTokens(data);
-        } else if (motionType == MotionType.DisapproveTokens) {
-            result = executeDisapproveTokens(data);
-        } else {
-            // TODO: Verify that this error string is correctly returned.
-            revert("Unsupported motion type.");
-        }
-<<<<<<< HEAD
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-=======
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function cancelMotion(uint motionID)
         public
         onlyDirectors
     {
-<<<<<<< HEAD
-<<<<<<< HEAD
         Motion storage motion = _getActiveMotion(motionID);
         require(msg.sender == motion.initiator, "Not initiator.");
         require(motion.votesFor + motion.votesAgainst == 0, "Motion has votes.");
@@ -606,18 +423,10 @@ contract Board is BytesHandler {
     {
         Motion storage motion = _getMotion(motionID);
         return _motionPastExpiry(motion);
-=======
-        unimplimented();
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-=======
-        unimplimented();
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function expireMotion(uint motionID)
         public
-<<<<<<< HEAD
-<<<<<<< HEAD
         onlyDirectors
     {
         Motion storage motion = _getMotion(motionID);
@@ -638,16 +447,10 @@ contract Board is BytesHandler {
         public
         view
         returns (bool)
-=======
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-=======
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     {
-        unimplimented();
+        return _motionFails(_getActiveMotion(motionID));
     }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     function _motionPasses(Motion storage motion)
         internal
         view
@@ -663,18 +466,10 @@ contract Board is BytesHandler {
     {
         return motion.votesAgainst >= _directors.size() / 2;
     }
-=======
-    function votePasses(motion )
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-=======
-    function votePasses(motion )
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
 
     function voteForMotion(uint motionID)
         public
         onlyDirectors
-<<<<<<< HEAD
-<<<<<<< HEAD
         returns (uint votesFor, uint votesAgainst)
     {
         Motion storage motion = _getVotableMotion(motionID);
@@ -697,25 +492,11 @@ contract Board is BytesHandler {
         }
 
         return (motion.votesFor, motion.votesAgainst);
-=======
-    {
-        Motion storage motion = getActiveMotion(motionID);
-        unimplimented();
-
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-=======
-    {
-        Motion storage motion = getActiveMotion(motionID);
-        unimplimented();
-
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function voteAgainstMotion(uint motionID)
         public
         onlyDirectors
-<<<<<<< HEAD
-<<<<<<< HEAD
         returns (uint votesFor, uint votesAgainst)
     {
         Motion storage motion = _getVotableMotion(motionID);
@@ -737,23 +518,11 @@ contract Board is BytesHandler {
         }
 
         return (motion.votesFor, motion.votesAgainst);
-=======
-    {
-        Motion storage motion = getActiveMotion(motionID);
-        unimplimented();
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-=======
-    {
-        Motion storage motion = getActiveMotion(motionID);
-        unimplimented();
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
     }
 
     function abstainFromMotion(uint motionID)
         public
         onlyDirectors
-<<<<<<< HEAD
-<<<<<<< HEAD
         returns (uint votesFor, uint votesAgainst)
     {
         Motion storage motion = _getVotableMotion(motionID);
@@ -790,19 +559,3 @@ contract Board is BytesHandler {
     event MotionExpired(uint indexed motionID);
     event SetFund(address indexed fund);
 }
-=======
-    {
-=======
-    {
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-        Motion storage motion = getActiveMotion(motionID);
-        unimplimented();
-    }
-    
-
-<<<<<<< HEAD
-}
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund
-=======
-}
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund

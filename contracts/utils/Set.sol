@@ -15,7 +15,7 @@ library AddressSet {
         _;
     }
 
-    function initialiseSet(Set storage s)
+    function initialise(Set storage s)
         internal
     {
         require(!s.isInitialised(), "Set must be uninitialised.");
@@ -27,7 +27,6 @@ library AddressSet {
         view
         returns (bool)
     {
-<<<<<<< HEAD:contracts/utils/Set.sol
         return s.items.length != 0;
     }
 
@@ -43,9 +42,6 @@ library AddressSet {
         }
 
         s.items.length = 0;
-=======
-        return s.items.length != 0 && s.items[0] == 0;
->>>>>>> parent of c666e5e... Merge branch 'board-of-directors' into join-fund:contracts/utils/IterableSet.sol
     }
 
     function size(Set storage s)
