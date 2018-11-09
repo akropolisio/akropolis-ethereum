@@ -1,5 +1,13 @@
-# User Journeys
+
+
+# Akropolis Protocol Implementation
+
+![Akropolis](https://bitcoinvietnamnews.com/wp-content/uploads/2018/08/akropolis-coin.jpg)
+
+
+# MVP User Journeys
  
+
 ## Journeys
 
 
@@ -25,7 +33,6 @@
   2. View fund detail (should be approved)
   3. Setup a recurring contribution
   4. View contributions and history
-  
 ## Functionality (by Role) 
 
 Individual
@@ -61,3 +68,9 @@ Board of Directors
 - Voting on Motions
 
 
+# Support
+Join our support server at https://discord.gg/GZWaZCP for the latest news and information!
+
+
+# License
+Akropolis-Ethereum is released under the MIT License.
