@@ -17,6 +17,7 @@
   5. Fee requirements 
 ### Functionality: Initial Asset Allocation
 ### User Type: Fund Manager
+
   1. Setup a transfer
     1. View Director approved investible tokens
     2. Select quantity, address, transfer in, approve
