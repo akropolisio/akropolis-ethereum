@@ -2,10 +2,10 @@
 
 # Akropolis Protocol Implementation
 
-![Akropolis](https://bitcoinvietnamnews.com/wp-content/uploads/2018/08/akropolis-coin.jpg)
+![Akropolis](https://pbs.twimg.com/profile_banners/935139646224371712/1539031201/1500x500)
 
 
-# MVP User Journeys
+# User Journeys
  
 
 ## Journeys
