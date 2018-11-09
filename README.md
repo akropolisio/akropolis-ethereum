@@ -6,4 +6,9 @@
 
 
 
+# Support
 Join our support server at https://discord.gg/GZWaZCP for the latest news and information!
+
+
+# License
+Akropolis-Ethereum is released under the MIT License.
