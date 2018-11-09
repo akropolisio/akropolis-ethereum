@@ -3,6 +3,8 @@
 # Akropolis Protocol Implementation
 
 ![Akropolis](banner.png?raw=true)
+
+The goal of the MVP is to demonstrate how the core components and network participants interact. Below are a few defined journeys that build on one another to showcase this interaction as a progression of events.
  
 ## User Journeys
 
