@@ -8,8 +8,7 @@ The goal of the MVP is to demonstrate how the core components and network partic
  
 # User Journeys
 
-
-### Functionality "Pension Fund Creation" by User Type "Sponsor"
+### "Pension Fund Creation" by User Type "Sponsor"
   - Create a Pension Fund
   - Complete descriptive fields, set lockup and fees
   - Leave Manager and Directors addresses blank
@@ -22,14 +21,14 @@ The goal of the MVP is to demonstrate how the core components and network partic
   - Select newly created fund and view fund detail 
 
 
-### Functionality "Initial Allocation" by User Type "Manager"
+### "Initial Allocation" by User Type "Manager"
   - Setup a transfer
     - View Director approved investible tokens
     - Select quantity, address, transfer in, approve
   - View Fund detail
     - Change should be reflected
     
-### Functionality "Join a Pension Fund & Setup Recurring Contributions" by User Type "Beneficiary"
+### "Join a Pension Fund & Setup Recurring Contributions" by User Type "Beneficiary"
   - Switch windows to the Manager screen
     - View join request
     - Accept join request
@@ -37,7 +36,7 @@ The goal of the MVP is to demonstrate how the core components and network partic
   - Setup a recurring contribution
   - View contributions and history
 
-## Functionality by User Type 
+# Functionality by User Type 
 
 ### Beneficiary
 
@@ -62,7 +61,7 @@ The goal of the MVP is to demonstrate how the core components and network partic
 
 ### Sponsor
 
-- Create a digital fund (as defined above)
+- Create a digital Pension Fund 
 
 ### Board of Directors (temporary governance measure)
 
