@@ -1,3 +1,10 @@
+/*
+* The MIT License
+*
+* Copyright (c) 2017-2018 , Akropolis Decentralised Ltd (Gibraltar), http://akropolis.io
+*
+*/
+
 pragma solidity ^0.4.24;
 
 import "../interfaces/ERC20Token.sol";
